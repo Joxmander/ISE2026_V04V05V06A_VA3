@@ -1,53 +1,50 @@
 /**
  ******************************************************************************
- * @file    comFibraA.c
+ * @file    comFibraB.c
  * @author  Jose Vargas Gonzaga
- * @brief   Implementación eficiente del Protocolo Binario en UART (Nodo A).
+ * @brief   Implementación del receptor/transmisor de Fibra para el NODO B.
  ******************************************************************************
  */
 
-#include "comFibraA.h"
-#include <stdio.h> // Para la función de Debug (printf)
+#include "comFibraB.h"
                 
 /* --- Prototipos Privados --- */
-static void Hilo_FibraA_Tx(void* args);                   
-static void Callback_FibraA_USART(uint32_t event);
-static void USART_FibraA_Config(void);
+static void Hilo_FibraB_Tx(void* args);                   
+static void Callback_FibraB_USART(uint32_t event);
+static void USART_FibraB_Config(void);
 
 /* --- Recursos RTOS --- */
-static osThreadId_t       tid_FibraATx;     
+static osThreadId_t       tid_FibraBTx;     
 static osMessageQueueId_t mid_MsgQueueTx;   
 static osMessageQueueId_t mid_MsgQueueRx;   
 
-/* --- Máquina de Estados RX (Interrupción) --- */
-static uint8_t rx_byte;                     // Último byte leído
-static uint8_t rx_buffer[sizeof(TramaFibra_t)]; // Array de 6 bytes exactos
-static uint8_t rx_index = 0;                // Posición (0 a 5)
+/* --- Máquina de Estados RX --- */
+static uint8_t rx_byte;                     
+static uint8_t rx_buffer[sizeof(TramaFibra_t)]; 
+static uint8_t rx_index = 0;                
 
-/* --- Driver Hardware --- */
-extern ARM_DRIVER_USART Driver_USART2; // <-- Reemplazar por la UART correcta
-static ARM_DRIVER_USART * USARTdrv = &Driver_USART2;
+/* --- Driver Hardware (AJUSTAR AL NODO B) --- */
+extern ARM_DRIVER_USART Driver_USART3; // <--- Ojo aquí, poner la del Nodo B
+static ARM_DRIVER_USART * USARTdrv = &Driver_USART3;
  
 /* ==============================================================================
  * INICIALIZACIÓN
  * ============================================================================== */
-int Init_ComFibraA(void) {
-    // Colas adaptadas al tamaño exacto de la estructura binaria (6 bytes)
-    mid_MsgQueueTx = osMessageQueueNew(MAX_MENSAJES_Q, sizeof(TramaFibra_t), NULL);
-    mid_MsgQueueRx = osMessageQueueNew(MAX_MENSAJES_Q, sizeof(TramaFibra_t), NULL);
+int Init_ComFibraB(void) {
+    mid_MsgQueueTx = osMessageQueueNew(10, sizeof(TramaFibra_t), NULL);
+    mid_MsgQueueRx = osMessageQueueNew(10, sizeof(TramaFibra_t), NULL);
     
     if (!mid_MsgQueueTx || !mid_MsgQueueRx) return -1;
   
-    USART_FibraA_Config();
+    USART_FibraB_Config();
 
     const osThreadAttr_t tx_attr = {
-        .name = "FibraA_TX",
-        .priority = osPriorityAboveNormal // Alta prioridad para comunicaciones
+        .name = "FibraB_TX",
+        .priority = osPriorityAboveNormal 
     };
-    tid_FibraATx = osThreadNew(Hilo_FibraA_Tx, NULL, &tx_attr);
-    if (!tid_FibraATx) return -1;
+    tid_FibraBTx = osThreadNew(Hilo_FibraB_Tx, NULL, &tx_attr);
+    if (!tid_FibraBTx) return -1;
 
-    // Arrancamos el motor de recepción del primer byte
     rx_index = 0;
     USARTdrv->Receive(&rx_byte, 1);
 
@@ -55,43 +52,30 @@ int Init_ComFibraA(void) {
 }
 
 /* ==============================================================================
- * FUNCIONES PÚBLICAS DE ENVÍO/RECEPCIÓN (Para el Orquestador)
+ * FUNCIONES PÚBLICAS
  * ============================================================================== */
-int ComFibraA_EnviarTrama(const TramaFibra_t* trama) {
+int ComFibraB_EnviarTrama(const TramaFibra_t* trama) {
     if (trama == NULL) return -1;
-    // Envío a la cola sin bloqueo (timeout = 0)
     osStatus_t status = osMessageQueuePut(mid_MsgQueueTx, trama, 0U, 0U);
     return (status == osOK) ? 0 : -1;
 }
 
-int ComFibraA_RecibirTrama(TramaFibra_t* out_trama, uint32_t timeout_ms) {
+int ComFibraB_RecibirTrama(TramaFibra_t* out_trama, uint32_t timeout_ms) {
     if (out_trama == NULL) return -1;
     osStatus_t status = osMessageQueueGet(mid_MsgQueueRx, out_trama, NULL, timeout_ms);
     return (status == osOK) ? 0 : -1;
 }
 
-void ComFibraA_DebugPrintTrama(const TramaFibra_t* trama) {
-    // Esta función asume que tienes printf redirigido al ST-Link (ITM o UART)
-    printf("Trama -> Tipo: %02X | ID: %02X | P1: %d | P2: %d\r\n", 
-           trama->tipo, trama->id_accion, trama->param1, trama->param2);
-}
-
 /* ==============================================================================
  * HILO DE TRANSMISIÓN (TX)
  * ============================================================================== */
-static void Hilo_FibraA_Tx(void* args){
+static void Hilo_FibraB_Tx(void* args){
     TramaFibra_t txTrama;
   
     while(1){
-        // Esperamos una trama del Hilo Principal
         if (osMessageQueueGet(mid_MsgQueueTx, &txTrama, NULL, osWaitForever) == osOK) {
-            
             osThreadFlagsClear(ARM_USART_EVENT_SEND_COMPLETE);
-            
-            // Enviamos los 6 bytes crudos directamente desde la memoria
             USARTdrv->Send(&txTrama, sizeof(TramaFibra_t));
-        
-            // Dormimos hasta que la transmisión física acabe
             osThreadFlagsWait(ARM_USART_EVENT_SEND_COMPLETE, osFlagsWaitAny, osWaitForever);
         }
     }
@@ -100,45 +84,27 @@ static void Hilo_FibraA_Tx(void* args){
 /* ==============================================================================
  * MÁQUINA DE ESTADOS DE RECEPCIÓN (INTERRUPCIÓN)
  * ============================================================================== */
-static void Callback_FibraA_USART(uint32_t event){
+static void Callback_FibraB_USART(uint32_t event){
     
-    // 1. TRANSMISIÓN COMPLETADA
     if (event & ARM_USART_EVENT_SEND_COMPLETE) {
-        osThreadFlagsSet(tid_FibraATx, ARM_USART_EVENT_SEND_COMPLETE);
+        osThreadFlagsSet(tid_FibraBTx, ARM_USART_EVENT_SEND_COMPLETE);
     }
 
-    // 2. RECEPCIÓN DE UN BYTE
     if (event & ARM_USART_EVENT_RECEIVE_COMPLETE) {
-        
-        // Fase 1: Buscando el byte de inicio
         if (rx_index == 0) {
             if (rx_byte == TRAMA_START_BYTE) {
                 rx_buffer[rx_index++] = rx_byte;
             }
-        } 
-        // Fase 2: Llenando el cuerpo de la trama
-        else {
+        } else {
             rx_buffer[rx_index++] = rx_byte;
-            
-            // Fase 3: ¿Hemos llegado a los 6 bytes?
             if (rx_index == sizeof(TramaFibra_t)) {
-                
-                // Validación final de integridad
                 if (rx_buffer[5] == TRAMA_END_BYTE) {
-                    
-                    // Casteamos el buffer crudo directamente a la estructura (Súper rápido)
                     TramaFibra_t* trama_recibida = (TramaFibra_t*)rx_buffer;
-                    
-                    // Metemos a la cola
                     osMessageQueuePut(mid_MsgQueueRx, trama_recibida, 0U, 0U);
                 }
-                
-                // Reiniciamos índice para la siguiente trama (sea válida o corrupta)
                 rx_index = 0; 
             }
         }
-        
-        // Rearmar el receptor HW
         USARTdrv->Receive(&rx_byte, 1);
     }
 }
@@ -146,15 +112,14 @@ static void Callback_FibraA_USART(uint32_t event){
 /* ==============================================================================
  * CONFIGURACIÓN HARDWARE
  * ============================================================================== */
-static void USART_FibraA_Config(void){
-    USARTdrv->Initialize(Callback_FibraA_USART);
+static void USART_FibraB_Config(void){
+    USARTdrv->Initialize(Callback_FibraB_USART);
     USARTdrv->PowerControl(ARM_POWER_FULL);
-    // Configuración binaria estándar
     USARTdrv->Control(ARM_USART_MODE_ASYNCHRONOUS | 
                       ARM_USART_DATA_BITS_8       | 
                       ARM_USART_PARITY_NONE       | 
                       ARM_USART_STOP_BITS_1       | 
                       ARM_USART_FLOW_CONTROL_NONE, 
-                      FIBRA_SPEED);
+                      115200);
     USARTdrv->Control(ARM_USART_CONTROL_TX | ARM_USART_CONTROL_RX, 1);
 }

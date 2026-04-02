@@ -583,6 +583,16 @@
               <FileType>1</FileType>
               <FilePath>.\comFibraA.c</FilePath>
             </File>
+            <File>
+              <FileName>comFibraB.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\comFibraB.h</FilePath>
+            </File>
+            <File>
+              <FileName>comFibraB.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\comFibraB.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
