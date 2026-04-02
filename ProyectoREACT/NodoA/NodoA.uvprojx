@@ -138,7 +138,7 @@
           </Flash1>
           <bUseTDR>1</bUseTDR>
           <Flash2>BIN\UL2CM3.DLL</Flash2>
-          <Flash3>"" ()</Flash3>
+          <Flash3></Flash3>
           <Flash4></Flash4>
           <pFcarmOut>Web.c</pFcarmOut>
           <pFcarmGrp>Source</pFcarmGrp>
@@ -389,16 +389,6 @@
               <FilePath>.\main.c</FilePath>
             </File>
             <File>
-              <FileName>HTTP_Server.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\HTTP_Server.c</FilePath>
-            </File>
-            <File>
-              <FileName>HTTP_Server_CGI.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\HTTP_Server_CGI.c</FilePath>
-            </File>
-            <File>
               <FileName>Web.c</FileName>
               <FileType>1</FileType>
               <FilePath>Web\Web.c</FilePath>
@@ -407,6 +397,16 @@
               <FileName>stm32f4xx_it.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\stm32f4xx_it.c</FilePath>
+            </File>
+            <File>
+              <FileName>webManager.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\webManager.c</FilePath>
+            </File>
+            <File>
+              <FileName>webManager_CGI.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\webManager_CGI.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -417,16 +417,6 @@
               <FileName>index.htm</FileName>
               <FileType>9</FileType>
               <FilePath>.\Web\index.htm</FilePath>
-            </File>
-            <File>
-              <FileName>pg_header.inc</FileName>
-              <FileType>9</FileType>
-              <FilePath>.\Web\pg_header.inc</FilePath>
-            </File>
-            <File>
-              <FileName>pg_footer.inc</FileName>
-              <FileType>9</FileType>
-              <FilePath>.\Web\pg_footer.inc</FilePath>
             </File>
             <File>
               <FileName>ad.cgi</FileName>
@@ -459,9 +449,9 @@
               <FilePath>.\Web\lcd.cgi</FilePath>
             </File>
             <File>
-              <FileName>leds.cgi</FileName>
+              <FileName>panel.cgi</FileName>
               <FileType>9</FileType>
-              <FilePath>.\Web\leds.cgi</FilePath>
+              <FilePath>.\Web\panel.cgi</FilePath>
             </File>
             <File>
               <FileName>network.cgi</FileName>
@@ -567,31 +557,6 @@
               <FileName>rtc.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\rtc.c</FilePath>
-            </File>
-          </Files>
-        </Group>
-        <Group>
-          <GroupName>Fibra</GroupName>
-          <Files>
-            <File>
-              <FileName>comFibraA.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\comFibraA.h</FilePath>
-            </File>
-            <File>
-              <FileName>comFibraA.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\comFibraA.c</FilePath>
-            </File>
-            <File>
-              <FileName>comFibraB.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\comFibraB.h</FilePath>
-            </File>
-            <File>
-              <FileName>comFibraB.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\comFibraB.c</FilePath>
             </File>
           </Files>
         </Group>
