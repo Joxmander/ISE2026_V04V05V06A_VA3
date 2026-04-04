@@ -38,7 +38,7 @@ typedef struct {
 __attribute__((weak)) osMessageQueueId_t colaEventosCerebro = NULL;
 
 // Variables temporales para simular la web de REACT
-static char react_rx_trama[30] = "[A la espera de Loopback]";
+char react_rx_trama[30] = "[A la espera de Loopback]";
 // === FIN NUEVO CÓDIGO REACT ===
 
 

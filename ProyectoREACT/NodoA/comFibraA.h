@@ -2,9 +2,7 @@
  ******************************************************************************
  * @file    comFibraA.h
  * @author  Jose Vargas Gonzaga
- * @brief   M?dulo de comunicaci?n por Fibra ?ptica (Protocolo Binario) - NODO A
- * * Utiliza tramas binarias estrictas de 6 bytes para m?xima eficiencia,
- * menor latencia y seguridad de memoria (sin uso de strings).
+ * @brief   Módulo de comunicación por Fibra Óptica - NODO A (R.E.A.C.T.)
  ******************************************************************************
  */
 
@@ -21,61 +19,36 @@
 #define FIBRA_SPEED       115200 
 #define MAX_MENSAJES_Q    10      
 
-/* --- Definiciones del Protocolo Binario --- */
-#define TRAMA_START_BYTE  0xAA    // Byte m?gico de inicio
-#define TRAMA_END_BYTE    0x55    // Byte m?gico de fin
+/* --- Definiciones del Protocolo REACT --- */
+#define TRAMA_SOF         0xAA    // Start Of Frame
 
-/* Tipos de Mensaje */
-#define TIPO_COMANDO      0x01    // Del Nodo A al Nodo B (?rdenes)
-#define TIPO_EVENTO       0x02    // Del Nodo B al Nodo A (Sensores)
+// Máscaras para el Byte 1 (TIPO_MODO)
+#define DIR_B_TO_A        0x80    // Bit 7 a 1: Dato del Nodo B al A
+#define DIR_A_TO_B        0x00    // Bit 7 a 0: Comando del Nodo A al B
+#define MASK_MODO         0x7F    // Máscara para extraer el Modo (Bits 0-6)
 
-/* Cat?logo de ?rdenes (Nodo A -> Nodo B) */
-#define CMD_START_JUEGO   0x10
-#define CMD_STOP_JUEGO    0x11
-#define CMD_SLEEP_NODO    0x12
+// Catálogo de Modos de Juego
+#define MODO_TELEMETRIA   0x00
+#define MODO_MEMORIA      0x01
+#define MODO_FUERZA       0x02
+#define MODO_INHIBICION   0x03
+#define MODO_RITMO        0x04
 
-/* Cat?logo de Eventos (Nodo B -> Nodo A) */
-#define EVT_HIT_SENSOR    0x20
-#define EVT_MISS_SENSOR   0x21
-#define EVT_FIN_TIEMPO    0x22
-#define EVT_BATERIA_MAH   0x23
-
-/* --- ESTRUCTURA DE LA TRAMA (Empaquetado estricto de 6 bytes) --- */
-#pragma pack(push, 1) // Fuerza al compilador a no dejar huecos de memoria
+/* --- ESTRUCTURA DE LA TRAMA (6 bytes) --- */
+#pragma pack(push, 1) 
 typedef struct {
-    uint8_t start_byte;   // Siempre 0xAA
-    uint8_t tipo;         // TIPO_COMANDO o TIPO_EVENTO
-    uint8_t id_accion;    // Ej: CMD_START_JUEGO o EVT_HIT_SENSOR
-    uint8_t param1;       // Parametro 1 (Ej: ID del Pad, o Modo de Juego)
-    uint8_t param2;       // Parametro 2 (Ej: Fuerza del golpe)
-    uint8_t end_byte;     // Siempre 0x55
+    uint8_t sof;          // Siempre 0xAA
+    uint8_t tipo_modo;    // Bit 7: Dirección | Bits 0-6: ID Modo
+    uint8_t payload1;     // MSB Tiempo / Bandera
+    uint8_t payload2;     // LSB Tiempo
+    uint8_t payload3;     // Fuerza ADC / Batería
+    uint8_t checksum;     // XOR de los 4 bytes centrales
 } TramaFibra_t;
 #pragma pack(pop)
 
-/* --- Funciones P?blicas --- */
-
-/**
- * @brief  Inicializa UART, colas de RTOS e interrupciones.
- */
+/* --- Funciones Públicas --- */
 int Init_ComFibraA(void);
-
-/**
- * @brief  Encola una trama binaria para ser enviada por hardware.
- * @param  trama: Puntero a la estructura con los datos a enviar.
- */
-int ComFibraA_EnviarTrama(const TramaFibra_t* trama);
-
-/**
- * @brief  Extrae una trama validada de la cola de recepci?n.
- * @param  out_trama: Donde se copiar?n los datos recibidos.
- * @param  timeout_ms: osWaitForever para esperar indefinidamente.
- */
+int ComFibraA_EnviarTrama(TramaFibra_t* trama);
 int ComFibraA_RecibirTrama(TramaFibra_t* out_trama, uint32_t timeout_ms);
 
-/**
- * @brief  (DEBUG) Imprime el contenido de la trama por el puerto serie USB.
- */
-void ComFibraA_DebugPrintTrama(const TramaFibra_t* trama);
-
 #endif /* COM_FIBRA_A_H */
-

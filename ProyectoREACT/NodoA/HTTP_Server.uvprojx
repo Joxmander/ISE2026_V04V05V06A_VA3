@@ -408,6 +408,16 @@
               <FileType>1</FileType>
               <FilePath>.\stm32f4xx_it.c</FilePath>
             </File>
+            <File>
+              <FileName>CerebroA.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\CerebroA.h</FilePath>
+            </File>
+            <File>
+              <FileName>CerebroA.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\CerebroA.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

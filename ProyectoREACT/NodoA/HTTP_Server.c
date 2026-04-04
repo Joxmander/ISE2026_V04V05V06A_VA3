@@ -23,6 +23,7 @@
 #include "lcd.h"
 #include "adc.h"
 #include "rtc.h"
+#include "CerebroA.h"
 
 
 // === INICIO NUEVO CÓDIGO REACT ===
@@ -49,6 +50,17 @@ const osThreadAttr_t app_main_attr = {
   .stack_mem  = &app_main_stk[0],
   .stack_size = sizeof(app_main_stk)
 };
+
+// === INICIO NUEVO CÓDIGO REACT (Memoria del Cerebro) ===
+#define CEREBRO_STK_SZ (2048U)        
+uint64_t cerebro_stk[CEREBRO_STK_SZ / 8];
+
+const osThreadAttr_t cerebro_attr = {
+  .name = "Cerebro_Thread",
+  .stack_mem  = &cerebro_stk[0],
+  .stack_size = sizeof(cerebro_stk)
+};
+// === FIN NUEVO CÓDIGO REACT ===
 
 /* --- VARIABLES GLOBALES COMPARTIDAS CON LA WEB --- */
 // Estas variables me permiten comunicar la interfaz web con el hardware
@@ -258,13 +270,16 @@ __NO_RETURN void app_main (void *arg) {
   timer_led_verde = osTimerNew(TimerVerde_Callback, osTimerPeriodic, NULL, NULL);
 
   // === INICIO NUEVO CÓDIGO REACT ===
-  // 4. Inicializamos la cola de mensajes de REACT (Tamaño 10 mensajes)
+  // Inicializamos la cola de mensajes de REACT
   colaEventosCerebro = osMessageQueueNew(10, sizeof(MensajeCerebro_t), NULL);
+  
+  // Arrancamos el Cerebro usando la memoria estática que hemos definido arriba
+  //osThreadNew(Hilo_Orquestador_Cerebro, NULL, &cerebro_attr);
   // === FIN NUEVO CÓDIGO REACT ===
 
   // 5. Creo y arranco mi hilo del tiempo
   osThreadNew (Time_Thread, NULL, NULL); 
   
-  // 6. Destruyo este hilo inicial (app_main) porque ya no lo necesito, liberando recursos.
+  // 6. Destruyo este hilo inicial (app_main) porque ya no lo necesito.
   osThreadExit();
 }
