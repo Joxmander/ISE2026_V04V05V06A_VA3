@@ -24,29 +24,30 @@ static uint8_t rx_byte;
 static uint8_t rx_buffer[sizeof(TramaFibra_t)]; 
 static uint8_t rx_index = 0;                
 
-extern ARM_DRIVER_USART Driver_USART2; 
-static ARM_DRIVER_USART * USARTdrv = &Driver_USART2;
+extern ARM_DRIVER_USART Driver_USART3; 
+static ARM_DRIVER_USART * USARTdrv = &Driver_USART3;
  
 int Init_ComFibraA(void) {
     mid_MsgQueueTx = osMessageQueueNew(MAX_MENSAJES_Q, sizeof(TramaFibra_t), NULL);
     mid_MsgQueueRx = osMessageQueueNew(MAX_MENSAJES_Q, sizeof(TramaFibra_t), NULL);
     
     if (!mid_MsgQueueTx || !mid_MsgQueueRx) return -1;
-      HAL_NVIC_SetPriority(USART2_IRQn, 7, 0); 
-    HAL_NVIC_EnableIRQ(USART2_IRQn);
-    USART_FibraA_Config();
+  
+    // ==========================================
+    // ENCENDEMOS EL DRIVER FÍSICO (¡AQUÍ ESTABA EL ERROR!)
+    USART_FibraA_Config(); 
+    // ==========================================
 
-    // PROTECCIÓN AÑADIDA: Aumentamos la memoria del hilo de 200 a 512 bytes
     const osThreadAttr_t tx_attr = {
         .name = "FibraA_TX",
-        .priority = osPriorityNormal,
-        .stack_size = 1024 
+        .priority = osPriorityAboveNormal,
+        .stack_size = 512 
     };
     tid_FibraATx = osThreadNew(Hilo_FibraA_Tx, NULL, &tx_attr);
     if (!tid_FibraATx) return -1;
 
     rx_index = 0;
-    USARTdrv->Receive(&rx_byte, 1);
+   // USARTdrv->Receive(&rx_byte, 1);
 
     return 0;
 }
@@ -113,5 +114,10 @@ static void USART_FibraA_Config(void){
                       ARM_USART_STOP_BITS_1       | 
                       ARM_USART_FLOW_CONTROL_NONE, 
                       FIBRA_SPEED);
-    USARTdrv->Control(ARM_USART_CONTROL_TX | ARM_USART_CONTROL_RX, 1);
+                      
+    // CIRUGÍA: Encendemos SOLO TX (Transmisión). RX apagado físicamente.
+    USARTdrv->Control(ARM_USART_CONTROL_TX, 1); 
 }
+
+
+

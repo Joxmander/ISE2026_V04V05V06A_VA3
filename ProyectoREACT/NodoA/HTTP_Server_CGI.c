@@ -340,13 +340,13 @@ uint32_t netCGI_Script (const char *env, char *buf, uint32_t buflen, uint32_t *p
   // Evalúo el primer carácter de la etiqueta que me piden resolver.
   switch (env[0]) {
     
-    // === INICIO NUEVO CÓDIGO REACT ===
+// === INICIO NUEVO CÓDIGO REACT ===
     // Atendemos 'c r 1' y 'c r 2' para el panel de REACT
     case 'r':
-      if (env[1] == '1') {
+      if (env[2] == '1') { // ¡AQUÍ ESTÁ EL CAMBIO!
           len = (uint32_t)sprintf(buf, "<span style='color:green;'>Activo / 45mA</span>");
       }
-      else if (env[1] == '2') {
+      else if (env[2] == '2') { // ¡Y AQUÍ!
           len = (uint32_t)sprintf(buf, "%s", react_rx_trama);
       }
       break;

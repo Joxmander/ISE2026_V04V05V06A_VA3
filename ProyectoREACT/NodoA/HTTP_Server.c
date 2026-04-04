@@ -51,15 +51,15 @@ const osThreadAttr_t app_main_attr = {
   .stack_size = sizeof(app_main_stk)
 };
 
-// === INICIO NUEVO CÓDIGO REACT (Memoria del Cerebro) ===
-#define CEREBRO_STK_SZ (2048U)        
-uint64_t cerebro_stk[CEREBRO_STK_SZ / 8];
+//// === INICIO NUEVO CÓDIGO REACT (Memoria del Cerebro) ===
+//#define CEREBRO_STK_SZ (2048U)        
+//uint64_t cerebro_stk[CEREBRO_STK_SZ / 8];
 
-const osThreadAttr_t cerebro_attr = {
-  .name = "Cerebro_Thread",
-  .stack_mem  = &cerebro_stk[0],
-  .stack_size = sizeof(cerebro_stk)
-};
+//const osThreadAttr_t cerebro_attr = {
+//  .name = "Cerebro_Thread",
+//  .stack_mem  = &cerebro_stk[0],
+//  .stack_size = sizeof(cerebro_stk)
+//};
 // === FIN NUEVO CÓDIGO REACT ===
 
 /* --- VARIABLES GLOBALES COMPARTIDAS CON LA WEB --- */
@@ -269,17 +269,17 @@ __NO_RETURN void app_main (void *arg) {
   timer_led_rojo = osTimerNew(TimerRojo_Callback, osTimerPeriodic, NULL, NULL);
   timer_led_verde = osTimerNew(TimerVerde_Callback, osTimerPeriodic, NULL, NULL);
 
-  // === INICIO NUEVO CÓDIGO REACT ===
-  // Inicializamos la cola de mensajes de REACT
+  // === INICIO CÓDIGO REACT (MODO ZOMBIE) ===
+  // Creamos la cola de forma normal
   colaEventosCerebro = osMessageQueueNew(10, sizeof(MensajeCerebro_t), NULL);
   
-  // Arrancamos el Cerebro usando la memoria estática que hemos definido arriba
-  //osThreadNew(Hilo_Orquestador_Cerebro, NULL, &cerebro_attr);
-  // === FIN NUEVO CÓDIGO REACT ===
+  // Creamos el hilo de la forma más sencilla posible (sin atributos raros)
+  osThreadNew(Hilo_Orquestador_Cerebro, NULL, NULL);
+  // === FIN CÓDIGO REACT ===
 
   // 5. Creo y arranco mi hilo del tiempo
   osThreadNew (Time_Thread, NULL, NULL); 
   
-  // 6. Destruyo este hilo inicial (app_main) porque ya no lo necesito.
+  // 6. Destruyo este hilo inicial (app_main)
   osThreadExit();
 }
