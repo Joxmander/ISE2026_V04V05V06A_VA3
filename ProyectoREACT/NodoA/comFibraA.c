@@ -33,10 +33,7 @@ int Init_ComFibraA(void) {
     
     if (!mid_MsgQueueTx || !mid_MsgQueueRx) return -1;
   
-    // ==========================================
-    // ENCENDEMOS EL DRIVER FÍSICO (¡AQUÍ ESTABA EL ERROR!)
     USART_FibraA_Config(); 
-    // ==========================================
 
     const osThreadAttr_t tx_attr = {
         .name = "FibraA_TX",
@@ -47,7 +44,8 @@ int Init_ComFibraA(void) {
     if (!tid_FibraATx) return -1;
 
     rx_index = 0;
-   // USARTdrv->Receive(&rx_byte, 1);
+    // RECEPCIÓN APAGADA HASTA TENER LA SEGUNDA PLACA (Evita cuelgues de red)
+    // USARTdrv->Receive(&rx_byte, 1); 
 
     return 0;
 }
@@ -115,9 +113,10 @@ static void USART_FibraA_Config(void){
                       ARM_USART_FLOW_CONTROL_NONE, 
                       FIBRA_SPEED);
                       
-    // CIRUGÍA: Encendemos SOLO TX (Transmisión). RX apagado físicamente.
+    // Encendemos SOLO TX para mantener el Ping vivo. 
     USARTdrv->Control(ARM_USART_CONTROL_TX, 1); 
 }
+
 
 
 
