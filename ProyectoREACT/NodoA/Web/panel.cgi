@@ -33,8 +33,8 @@ t </head>
 t <body>
 t <div class="container">
 t   <div class="header">
-t     <img src="logo.jpg" alt="REACT Logo" class="logo">
-t     <h1>Estación Base S.E.C.R.M.</h1>
+t     <img src="logo.png" alt="REACT Logo" class="logo">
+t     <h1>Estaci&oacute;n Base R.E.A.C.T.</h1>
 t   </div>
 t   <form action="panel.cgi" method="post" name="form_react">
 t   <input type="hidden" value="react" name="pg">
@@ -42,32 +42,32 @@ t
 t   <h2>Estado del Sistema</h2>
 t   <div class="info-box">
 t     <strong>Estado del Nodo B (Consumo):</strong>
-c s 1
+c r 1
 t   </div>
 t
 t   <h2>Control de Entrenamiento Cognitivo</h2>
 t   <div class="form-group">
-t     <label><strong>Seleccione el modo de operación:</strong></label><br><br>
+t     <label><strong>Seleccione el modo de operaci&oacute;n:</strong></label><br><br>
 t     <select name="modo">
 t       <option value="1">Memoria de Trabajo</option>
 t       <option value="2">Control de Fuerza</option>
-t       <option value="3">Inhibición Motora</option>
+t       <option value="3">Inhibici&oacute;n Motora</option>
 t       <option value="4">Ritmo Constante</option>
-t       <option value="5">Discriminación</option>
+t       <option value="5">Discriminaci&oacute;n</option>
 t     </select>
 t     <input type="submit" value="Enviar Comando">
 t   </div>
 t
-t   <h2>Debugger: Enlace Fibra Óptica (UART)</h2>
+t   <h2>Debugger: Enlace Fibra &Oacute;ptica (UART)</h2>
 t   <div class="form-group">
 t     <label><strong>Trama TX Manual (Hex - 6 Bytes):</strong></label><br><br>
-t     <input type="text" name="trama_tx" maxlength="12" placeholder="Ej: 01A2B3">
+t     <input type="text" name="trama_tx" maxlength="12" placeholder="Ej: 01A2B3C4D5E6">
 t     <input type="submit" value="Transmitir a Nodo B">
 t   </div>
 t   <div class="form-group">
-t     <label><strong>Última Trama Recibida (RX):</strong></label><br><br>
+t     <label><strong>&Uacute;ltima Trama Recibida (RX):</strong></label><br><br>
 t     <div class="rx-box">
-c s 2
+c r 2
 t     </div>
 t   </div>
 t   

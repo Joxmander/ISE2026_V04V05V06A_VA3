@@ -1,19 +1,19 @@
 /**
-  ******************************************************************************
-  * @file    HTTP_Server_CGI.c
-  * @author  Jose Vargas Gonzaga
-  * @brief   Módulo puente entre la Web y el Hardware (CGI).
-  *          Aquí se procesan los formularios enviados por el usuario y se
-  *          preparan los datos dinámicos (Hora, Voltaje) para mostrar en web.
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file    HTTP_Server_CGI.c
+ * @author  Jose Vargas Gonzaga
+ * @brief   Módulo puente entre la Web y el Hardware (CGI).
+ * Aquí se procesan los formularios enviados por el usuario y se
+ * preparan los datos dinámicos (Hora, Voltaje) para mostrar en web.
+ ******************************************************************************
+ */
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include "cmsis_os2.h"
 #include "rl_net.h"
-#include "rtc.h"  				// Necesario para leer la hora
+#include "rtc.h"          // Necesario para leer la hora
 #include "lcd.h"          // Necesario para enviar mensajes al LCD
 #include "Board_LED.h"    // ::Board Support:LED
 
@@ -22,6 +22,25 @@
 #pragma  clang diagnostic push
 #pragma  clang diagnostic ignored "-Wformat-nonliteral"
 #endif
+
+
+// === INICIO NUEVO CÓDIGO REACT ===
+// Definimos la estructura del mensaje para no dar error de compilación
+typedef struct {
+    uint8_t origen;         // 0 = Web, 1 = Joystick, 2 = FibraRX
+    uint8_t tipo_comando;   // 1 = Modo Juego, 2 = Trama Debug Manual
+    uint8_t datos[6];       // Trama cruda
+} MensajeCerebro_t;
+
+// Variable global (la inicializaremos en el otro archivo después)
+// Usamos __attribute__((weak)) para que compile temporalmente incluso si no la has
+// definido todavía en el HTTP_Server.c
+__attribute__((weak)) osMessageQueueId_t colaEventosCerebro = NULL;
+
+// Variables temporales para simular la web de REACT
+static char react_rx_trama[30] = "[A la espera de Loopback]";
+// === FIN NUEVO CÓDIGO REACT ===
+
 
 // Variables externas
 extern uint16_t AD_in (uint32_t ch);
@@ -36,7 +55,7 @@ extern uint8_t alarma_habilitada_web;
 extern const char* sntp_servers[];
 
 // Variables Locales.
-static uint8_t P2;		// Variable local para guardar el estado de los 8 LEDs de la placa mbed
+static uint8_t P2;      // Variable local para guardar el estado de los 8 LEDs de la placa mbed
 static uint8_t ip_addr[NET_ADDR_IP6_LEN];
 static char    ip_string[40];
 
@@ -153,6 +172,10 @@ void netCGI_ProcessData (uint8_t code, const char *data, uint32_t len) {
   MSGQUEUE_OBJ_LCD_t msg_lcd; // Estructura para empaquetar el mensaje que enviaré a la pantalla LCD.
   bool update_lcd = false;    // Bandera que pongo a 'true' si detecto que me han enviado un texto nuevo para el LCD.
 
+  // === INICIO NUEVO CÓDIGO REACT ===
+  static MensajeCerebro_t msg_react; // Instancia local para mandar mensajes
+  // === FIN NUEVO CÓDIGO REACT ===
+
   // Si el código no es 0, ignoro la petición porque no es un formulario válido.
   if (code != 0) {
     return; 
@@ -233,6 +256,33 @@ void netCGI_ProcessData (uint8_t code, const char *data, uint32_t len) {
         periodo_seleccionado = (RTC_PeriodoAlarma_t)atoi(&var[8]);
         RTC_ConfigurarAlarma(periodo_seleccionado); // LLamo directamente a mi librería rtc.c
       }
+
+      // === INICIO NUEVO CÓDIGO REACT ===
+      /* --- NUEVA GESTIÓN REACT (ESTACIÓN BASE S.E.C.R.M) --- */
+      // 1. Selector de Modo de Juego
+      else if (strncmp(var, "modo=", 5) == 0) {
+          msg_react.origen = 0; 
+          msg_react.tipo_comando = 1;
+          msg_react.datos[0] = (uint8_t)atoi(&var[5]);
+          
+          if (colaEventosCerebro != NULL) {
+              osMessageQueuePut(colaEventosCerebro, &msg_react, 0, 0);
+          }
+      }
+      // 2. Trama Manual de Debug
+      else if (strncmp(var, "trama_tx=", 9) == 0) {
+          msg_react.origen = 0; 
+          msg_react.tipo_comando = 2;
+          
+          // Simulamos Loopback guardando el dato en nuestra variable temporal
+          strncpy(react_rx_trama, &var[9], 12); 
+          
+          if (colaEventosCerebro != NULL) {
+              osMessageQueuePut(colaEventosCerebro, &msg_react, 0, 0);
+          }
+      }
+      // === FIN NUEVO CÓDIGO REACT ===
+
     }
   } while (data); // Repito hasta que no queden más variables en la cadena.
 
@@ -290,6 +340,18 @@ uint32_t netCGI_Script (const char *env, char *buf, uint32_t buflen, uint32_t *p
   // Evalúo el primer carácter de la etiqueta que me piden resolver.
   switch (env[0]) {
     
+    // === INICIO NUEVO CÓDIGO REACT ===
+    // Atendemos 'c r 1' y 'c r 2' para el panel de REACT
+    case 'r':
+      if (env[1] == '1') {
+          len = (uint32_t)sprintf(buf, "<span style='color:green;'>Activo / 45mA</span>");
+      }
+      else if (env[1] == '2') {
+          len = (uint32_t)sprintf(buf, "%s", react_rx_trama);
+      }
+      break;
+    // === FIN NUEVO CÓDIGO REACT ===
+
     // CASOS a, b, c, d, e... se encargan de red, LEDs, Sockets TCP, contraseñas e idioma.
     // (Omito documentar cada caso por defecto para centrarnos en lo importante).
     case 'a' :

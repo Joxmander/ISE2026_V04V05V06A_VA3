@@ -389,6 +389,16 @@
               <FilePath>.\main.c</FilePath>
             </File>
             <File>
+              <FileName>HTTP_Server.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\HTTP_Server.c</FilePath>
+            </File>
+            <File>
+              <FileName>HTTP_Server_CGI.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\HTTP_Server_CGI.c</FilePath>
+            </File>
+            <File>
               <FileName>Web.c</FileName>
               <FileType>1</FileType>
               <FilePath>Web\Web.c</FilePath>
@@ -397,16 +407,6 @@
               <FileName>stm32f4xx_it.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\stm32f4xx_it.c</FilePath>
-            </File>
-            <File>
-              <FileName>webManager.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\webManager.c</FilePath>
-            </File>
-            <File>
-              <FileName>webManager_CGI.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\webManager_CGI.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -417,6 +417,16 @@
               <FileName>index.htm</FileName>
               <FileType>9</FileType>
               <FilePath>.\Web\index.htm</FilePath>
+            </File>
+            <File>
+              <FileName>pg_header.inc</FileName>
+              <FileType>9</FileType>
+              <FilePath>.\Web\pg_header.inc</FilePath>
+            </File>
+            <File>
+              <FileName>pg_footer.inc</FileName>
+              <FileType>9</FileType>
+              <FilePath>.\Web\pg_footer.inc</FilePath>
             </File>
             <File>
               <FileName>ad.cgi</FileName>
@@ -449,9 +459,9 @@
               <FilePath>.\Web\lcd.cgi</FilePath>
             </File>
             <File>
-              <FileName>panel.cgi</FileName>
+              <FileName>leds.cgi</FileName>
               <FileType>9</FileType>
-              <FilePath>.\Web\panel.cgi</FilePath>
+              <FilePath>.\Web\leds.cgi</FilePath>
             </File>
             <File>
               <FileName>network.cgi</FileName>
@@ -484,11 +494,6 @@
               <FilePath>.\Web\keil.gif</FilePath>
             </File>
             <File>
-              <FileName>logo.gif</FileName>
-              <FileType>9</FileType>
-              <FilePath>.\Web\logo.gif</FilePath>
-            </File>
-            <File>
               <FileName>llblue.jpg</FileName>
               <FileType>9</FileType>
               <FilePath>.\Web\llblue.jpg</FilePath>
@@ -502,6 +507,16 @@
               <FileName>time.cgi</FileName>
               <FileType>9</FileType>
               <FilePath>.\Web\time.cgi</FilePath>
+            </File>
+            <File>
+              <FileName>panel.cgi</FileName>
+              <FileType>9</FileType>
+              <FilePath>.\Web\panel.cgi</FilePath>
+            </File>
+            <File>
+              <FileName>logo.png</FileName>
+              <FileType>9</FileType>
+              <FilePath>.\Web\logo.png</FilePath>
             </File>
           </Files>
         </Group>
@@ -561,6 +576,21 @@
           </Files>
         </Group>
         <Group>
+          <GroupName>Fibra</GroupName>
+          <Files>
+            <File>
+              <FileName>comFibraA.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\comFibraA.h</FilePath>
+            </File>
+            <File>
+              <FileName>comFibraA.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\comFibraA.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
           <GroupName>::Board Support</GroupName>
         </Group>
         <Group>
@@ -609,6 +639,12 @@
         </targetInfos>
       </api>
       <api Capiversion="2.3.0" Cclass="CMSIS Driver" Cgroup="SPI" exclusive="0">
+        <package name="CMSIS" schemaVersion="1.3" url="http://www.keil.com/pack/" vendor="ARM" version="5.8.0"/>
+        <targetInfos>
+          <targetInfo name="Debug"/>
+        </targetInfos>
+      </api>
+      <api Capiversion="2.4.0" Cclass="CMSIS Driver" Cgroup="USART" exclusive="0">
         <package name="CMSIS" schemaVersion="1.3" url="http://www.keil.com/pack/" vendor="ARM" version="5.8.0"/>
         <targetInfos>
           <targetInfo name="Debug"/>
@@ -722,6 +758,12 @@
           <targetInfo name="Debug"/>
         </targetInfos>
       </component>
+      <component Capiversion="2.1" Cclass="CMSIS Driver" Cgroup="USART" Cvendor="Keil" Cversion="2.13" condition="STM32F4 CMSIS_Driver USART">
+        <package name="STM32F4xx_DFP" schemaVersion="1.6.3" url="http://www.keil.com/pack/" vendor="Keil" version="2.15.0"/>
+        <targetInfos>
+          <targetInfo name="Debug"/>
+        </targetInfos>
+      </component>
       <component Capiversion="1.0.0" Cclass="Device" Cgroup="STM32Cube Framework" Csub="Classic" Cvendor="Keil" Cversion="1.7.9" condition="STM32F4 Framework Classic">
         <package name="STM32F4xx_DFP" schemaVersion="1.6.3" url="http://www.keil.com/pack/" vendor="Keil" version="2.15.0"/>
         <targetInfos>
@@ -795,6 +837,12 @@
         </targetInfos>
       </component>
       <component Cclass="Device" Cgroup="STM32Cube HAL" Csub="TIM" Cvendor="Keil" Cversion="1.7.9" condition="STM32F4 HAL DMA">
+        <package name="STM32F4xx_DFP" schemaVersion="1.6.3" url="http://www.keil.com/pack/" vendor="Keil" version="2.15.0"/>
+        <targetInfos>
+          <targetInfo name="Debug"/>
+        </targetInfos>
+      </component>
+      <component Cclass="Device" Cgroup="STM32Cube HAL" Csub="USART" Cvendor="Keil" Cversion="1.7.9" condition="STM32F4 HAL DMA RCC">
         <package name="STM32F4xx_DFP" schemaVersion="1.6.3" url="http://www.keil.com/pack/" vendor="Keil" version="2.15.0"/>
         <targetInfos>
           <targetInfo name="Debug"/>

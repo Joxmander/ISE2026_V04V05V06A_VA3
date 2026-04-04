@@ -24,6 +24,22 @@
 #include "adc.h"
 #include "rtc.h"
 
+
+// === INICIO NUEVO CÓDIGO REACT ===
+#include "cmsis_os2.h" // Aseguramos que el RTOS esté incluido para la cola
+
+// Definimos la estructura del mensaje para conectarnos con el CGI
+typedef struct {
+    uint8_t origen;         // 0 = Web, 1 = Joystick, 2 = FibraRX
+    uint8_t tipo_comando;   // 1 = Modo Juego, 2 = Trama Debug Manual
+    uint8_t datos[6];       // Trama cruda
+} MensajeCerebro_t;
+
+// Declaramos la variable global de la cola de eventos
+osMessageQueueId_t colaEventosCerebro = NULL;
+// === FIN NUEVO CÓDIGO REACT ===
+
+
 /* --- CONFIGURACIÓN DEL HILO PRINCIPAL (app_main) --- */
 // Reservo una pila estática para el hilo del servidor. 
 // Hacerlo estático me evita usar 'malloc' y previene problemas de fragmentación de memoria.
@@ -152,7 +168,7 @@ void Time_Thread (void *argument) {
         if (alarma_habilitada_web == 1) {
             // Aplico mi mecanismo de seguridad: Paro, reseteo el contador de parpadeos y arranco limpio
             osTimerStop(timer_led_verde); 
-            ResetPulsosVerde();           
+            ResetPulsosVerde();            
             osTimerStart(timer_led_verde, 200U); // Lanzo el timer para que parpadee cada 200ms en segundo plano
         }
     }
@@ -241,9 +257,14 @@ __NO_RETURN void app_main (void *arg) {
   timer_led_rojo = osTimerNew(TimerRojo_Callback, osTimerPeriodic, NULL, NULL);
   timer_led_verde = osTimerNew(TimerVerde_Callback, osTimerPeriodic, NULL, NULL);
 
-  // 4. Creo y arranco mi hilo del tiempo
+  // === INICIO NUEVO CÓDIGO REACT ===
+  // 4. Inicializamos la cola de mensajes de REACT (Tamaño 10 mensajes)
+  colaEventosCerebro = osMessageQueueNew(10, sizeof(MensajeCerebro_t), NULL);
+  // === FIN NUEVO CÓDIGO REACT ===
+
+  // 5. Creo y arranco mi hilo del tiempo
   osThreadNew (Time_Thread, NULL, NULL); 
   
-  // 5. Destruyo este hilo inicial (app_main) porque ya no lo necesito, liberando recursos.
+  // 6. Destruyo este hilo inicial (app_main) porque ya no lo necesito, liberando recursos.
   osThreadExit();
 }
