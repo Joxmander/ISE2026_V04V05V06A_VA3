@@ -23,6 +23,7 @@
 #include "lcd.h"
 #include "adc.h"
 #include "rtc.h"
+#include "CerebroB.h"
 
 /* --- CONFIGURACIÓN DEL HILO PRINCIPAL (app_main) --- */
 // Reservo una pila estática para el hilo del servidor. 
@@ -33,6 +34,21 @@ const osThreadAttr_t app_main_attr = {
   .stack_mem  = &app_main_stk[0],
   .stack_size = sizeof(app_main_stk)
 };
+
+
+// === INICIO NUEVO CÓDIGO FIBRA ===
+#include "cmsis_os2.h" // Aseguramos que el RTOS esté incluido para la cola
+
+// Definimos la estructura del mensaje para conectarnos con el CGI
+typedef struct {
+    uint8_t origen;         // 0 = Web, 1 = Joystick, 2 = FibraRX
+    uint8_t tipo_comando;   // 1 = Modo Juego, 2 = Trama Debug Manual
+    uint8_t datos[6];       // Trama cruda
+} MensajeCerebro_t;
+
+// Declaramos la variable global de la cola de eventos
+osMessageQueueId_t colaEventosCerebro = NULL;
+// === FIN NUEVO CÓDIGO FIBRA ===
 
 /* --- VARIABLES GLOBALES COMPARTIDAS CON LA WEB --- */
 // Estas variables me permiten comunicar la interfaz web con el hardware
@@ -241,6 +257,14 @@ __NO_RETURN void app_main (void *arg) {
   timer_led_rojo = osTimerNew(TimerRojo_Callback, osTimerPeriodic, NULL, NULL);
   timer_led_verde = osTimerNew(TimerVerde_Callback, osTimerPeriodic, NULL, NULL);
 
+	  // === INICIO CÓDIGO REACT (MODO ZOMBIE) ===
+  // Creamos la cola de forma normal
+  colaEventosCerebro = osMessageQueueNew(10, sizeof(MensajeCerebro_t), NULL);
+  
+  // Creamos el hilo de la forma más sencilla posible (sin atributos raros)
+  osThreadNew(Hilo_Orquestador_CerebroB, NULL, NULL);
+  // === FIN CÓDIGO REACT ===
+	
   // 4. Creo y arranco mi hilo del tiempo
   osThreadNew (Time_Thread, NULL, NULL); 
   
