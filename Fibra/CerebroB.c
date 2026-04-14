@@ -2,10 +2,7 @@
  ******************************************************************************
  * @file    CerebroB.c
  * @author  Jose Vargas Gonzaga
- * @brief   Lógica central del Nodo B. 
- * En esta fase, he diseñado el Nodo B para que actúe como Esclavo (Terminal).
- * Su principal característica es la eficiencia energética: el hilo permanece
- * totalmente suspendido hasta que recibe una petición del Nodo A.
+ * @brief   FASE 5.1: Máquina de estados no bloqueante (Simulador Hardware)
  ******************************************************************************
  */
 
@@ -15,30 +12,52 @@
 
 void Hilo_Orquestador_CerebroB(void *argument) {
     TramaFibra_t mensajeRX;
-    osStatus_t estado;
+    uint8_t modo_juego = 0;
+    uint16_t consumo_simulado = 48; 
+    
+    // Variables para la máquina de estados de simulación
+    bool jugando = false;
+    uint32_t tiempo_inicio_juego = 0;
 
-    // Inicializo mi hardware de comunicación óptica para este nodo
     FibraB_Init();
 
     while (1) {
-        // 1. Ahorro energético radical: Me bloqueo INDEFINIDAMENTE.
-        // Uso osWaitForever para ceder el 100% de la CPU al RTOS. 
-        // El hilo solo despertará por interrupción cuando llegue una trama válida.
-        estado = osMessageQueueGet(colaFibraRX_B, &mensajeRX, NULL, osWaitForever);
+        // En lugar de osWaitForever, esperamos 100ms. Si no llega nada,
+        // salimos del if y el microprocesador puede procesar otras cosas.
+        if (osMessageQueueGet(colaFibraRX_B, &mensajeRX, NULL, 100U) == osOK) {
+            
+            switch (mensajeRX.tipo_comando) {
+                case 0x10: // PING
+                    FibraB_SendFrame(0x20, 0x00, (consumo_simulado >> 8), (consumo_simulado & 0xFF));
+                    break;
 
-        if (estado == osOK) {
-            // He despertado porque hay un mensaje. Compruebo si viene del Maestro (0x10).
-            if (mensajeRX.tipo_comando == 0x10) {
-                
-                // TODO: En fases futuras, aquí lanzaré las lecturas físicas de mis 
-                // sensores (ADC para piezoeléctricos, I2C para proximidad, etc.).
-                // Por ahora, inyecto un dato simulado para validar el enlace bidireccional.
-                // Simulo: Pad 1 (0x01) golpeado con una fuerza del 85% (0x55).
-                
-                // 2. Respuesta inmediata: Devuelvo los datos al Nodo A.
-                // Uso el tipo 0x20 para indicarle al Maestro que es mi paquete de respuesta.
-                FibraB_SendFrame(0x20, 0x01, 0x55, 0x00);
+                case 0x30: // INICIAR JUEGO (¡DESPIERTA!)
+                    consumo_simulado = 48; // El sistema sale del Sleep automáticamente
+                    modo_juego = mensajeRX.payload[0];
+                    
+                    FibraB_SendFrame(0x31, modo_juego, 0x00, 0x00); // ACK
+                    
+                    // Iniciamos el cronómetro interno (Sin usar osDelay)
+                    jugando = true;
+                    tiempo_inicio_juego = osKernelGetTickCount();
+                    break;
+
+                case 0x40: // GO TO SLEEP
+                    consumo_simulado = 2; // Bajamos consumo
+                    jugando = false;      // Si estaba jugando, lo cancelamos
+                    FibraB_SendFrame(0x41, 0x00, 0x00, 0x00); // ACK
+                    break;
             }
+        }
+        
+        // --- PROCESOS EN SEGUNDO PLANO (Máquina de estados) ---
+        // Si estamos en modo "Jugando" y han pasado 2500 milisegundos...
+        if (jugando && ((osKernelGetTickCount() - tiempo_inicio_juego) >= 2500U)) {
+            jugando = false; // Terminamos la partida
+            uint8_t nivel_alcanzado = 5;
+            
+            // Enviamos la trama final de golpe
+            FibraB_SendFrame(0x50, modo_juego, nivel_alcanzado, 100); 
         }
     }
 }
