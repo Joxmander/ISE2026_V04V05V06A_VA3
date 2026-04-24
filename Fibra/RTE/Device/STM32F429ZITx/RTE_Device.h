@@ -1015,10 +1015,10 @@
 
 // <e> I2C1 (Inter-integrated Circuit Interface 1) [Driver_I2C1]
 // <i> Configuration settings for Driver_I2C1 in component ::CMSIS Driver:I2C
-#define RTE_I2C1                        0
+#define RTE_I2C1                        1
 
 //   <o> I2C1_SCL Pin <0=>PB6 <1=>PB8
-#define RTE_I2C1_SCL_PORT_ID            0
+#define RTE_I2C1_SCL_PORT_ID            1
 #if    (RTE_I2C1_SCL_PORT_ID == 0)
 #define RTE_I2C1_SCL_PORT               GPIOB
 #define RTE_I2C1_SCL_BIT                6
@@ -1030,7 +1030,7 @@
 #endif
 
 //   <o> I2C1_SDA Pin <0=>PB7 <1=>PB9
-#define RTE_I2C1_SDA_PORT_ID            0
+#define RTE_I2C1_SDA_PORT_ID            1
 #if    (RTE_I2C1_SDA_PORT_ID == 0)
 #define RTE_I2C1_SDA_PORT               GPIOB
 #define RTE_I2C1_SDA_BIT                7

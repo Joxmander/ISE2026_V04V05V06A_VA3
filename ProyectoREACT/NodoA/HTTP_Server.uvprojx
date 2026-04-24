@@ -601,6 +601,16 @@
           </Files>
         </Group>
         <Group>
+          <GroupName>Joystick</GroupName>
+          <Files>
+            <File>
+              <FileName>joystick.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\joystick.h</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
           <GroupName>::Board Support</GroupName>
         </Group>
         <Group>

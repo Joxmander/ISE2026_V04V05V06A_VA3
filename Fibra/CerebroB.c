@@ -2,62 +2,67 @@
  ******************************************************************************
  * @file    CerebroB.c
  * @author  Jose Vargas Gonzaga
- * @brief   FASE 5.1: Máquina de estados no bloqueante (Simulador Hardware)
+ * @brief   Orquestador del Nodo B con monitorización del sensor ToF.
  ******************************************************************************
  */
 
 #include "CerebroB.h"
 #include "comFibraB.h"
+#include "sensorProximidad.h" // Incluyo mi nueva librería
 #include "cmsis_os2.h"
+#include <stdio.h>
 
 void Hilo_Orquestador_CerebroB(void *argument) {
     TramaFibra_t mensajeRX;
     uint8_t modo_juego = 0;
     uint16_t consumo_simulado = 48; 
-    
-    // Variables para la máquina de estados de simulación
     bool jugando = false;
     uint32_t tiempo_inicio_juego = 0;
+    
+    // Variables para el monitor del sensor
+    uint32_t tick_anterior_monitor = 0;
 
     FibraB_Init();
+    // Nota: SensorProximidad_Init() ya se llama en app_main antes de lanzar este hilo
 
     while (1) {
-        // En lugar de osWaitForever, esperamos 100ms. Si no llega nada,
-        // salimos del if y el microprocesador puede procesar otras cosas.
-        if (osMessageQueueGet(colaFibraRX_B, &mensajeRX, NULL, 100U) == osOK) {
-            
+        // 1. Gestión de la Fibra Óptica (Nodo A -> Nodo B)
+        if (osMessageQueueGet(colaFibraRX_B, &mensajeRX, NULL, 50U) == osOK) {
             switch (mensajeRX.tipo_comando) {
                 case 0x10: // PING
                     FibraB_SendFrame(0x20, 0x00, (consumo_simulado >> 8), (consumo_simulado & 0xFF));
                     break;
 
-                case 0x30: // INICIAR JUEGO (¡DESPIERTA!)
-                    consumo_simulado = 48; // El sistema sale del Sleep automáticamente
+                case 0x30: // INICIAR JUEGO 
+                    consumo_simulado = 48; 
                     modo_juego = mensajeRX.payload[0];
-                    
                     FibraB_SendFrame(0x31, modo_juego, 0x00, 0x00); // ACK
-                    
-                    // Iniciamos el cronómetro interno (Sin usar osDelay)
                     jugando = true;
                     tiempo_inicio_juego = osKernelGetTickCount();
                     break;
 
                 case 0x40: // GO TO SLEEP
-                    consumo_simulado = 2; // Bajamos consumo
-                    jugando = false;      // Si estaba jugando, lo cancelamos
+                    consumo_simulado = 2; 
+                    jugando = false;      
                     FibraB_SendFrame(0x41, 0x00, 0x00, 0x00); // ACK
                     break;
             }
         }
         
-        // --- PROCESOS EN SEGUNDO PLANO (Máquina de estados) ---
-        // Si estamos en modo "Jugando" y han pasado 2500 milisegundos...
-        if (jugando && ((osKernelGetTickCount() - tiempo_inicio_juego) >= 2500U)) {
-            jugando = false; // Terminamos la partida
-            uint8_t nivel_alcanzado = 5;
+        // 2. MONITOR DEL SENSOR (Depuración en tiempo real)
+        // Imprimo el estado cada 200ms para no saturar el ITM
+        if ((osKernelGetTickCount() - tick_anterior_monitor) >= 200U) {
+            tick_anterior_monitor = osKernelGetTickCount();
             
-            // Enviamos la trama final de golpe
-            FibraB_SendFrame(0x50, modo_juego, nivel_alcanzado, 100); 
+            printf("[CEREBRO-B] ToF: %d mm | Estado: %s\r\n", 
+                   ToF_GetDistancia(), 
+                   ToF_ManoEnPosicionNeutra() ? "MANO DETECTADA" : "POSICION LIBRE");
+        }
+
+        // 3. Lógica de juego (Simulada por ahora)
+        if (jugando && ((osKernelGetTickCount() - tiempo_inicio_juego) >= 3000U)) {
+            jugando = false; 
+            FibraB_SendFrame(0x50, modo_juego, 5, 100); 
         }
     }
 }

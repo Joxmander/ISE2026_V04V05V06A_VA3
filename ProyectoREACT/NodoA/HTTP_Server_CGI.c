@@ -24,11 +24,10 @@
 #endif
 
 // === VARIABLES GLOBALES PARA LA WEB REACT ===
-// Las definimos aquí para que el servidor web sea el dueño, y CerebroA las modificará.
 char react_rx_trama[30] = "[A la espera de Loopback]";
 char react_estado_sistema[60] = "<span style='color:green;'>Activo / 45mA</span>";
+char react_nombre_jugador[16] = "Invitado"; // VARIABLE PARA EL NOMBRE
 // ============================================
-
 // Variables externas
 extern uint16_t AD_in (uint32_t ch);
 extern bool LEDrun;
@@ -179,8 +178,14 @@ void netCGI_ProcessData (uint8_t code, const char *data, uint32_t len) {
         RTC_ConfigurarAlarma(periodo_seleccionado);
       }
 
-      /* --- GESTIÓN REACT (ESTACIÓN BASE S.E.C.R.M) --- */
-      // 1. Selector de Modo de Juego
+      /* --- GESTIÓN REACT (ESTACIÓN BASE) --- */
+      // 1. Capturamos el texto libre del nombre (Llega como "jugador=Jose")
+      else if (strncmp(var, "jugador=", 8) == 0) {
+          // Copiamos máximo 15 caracteres para no desbordar el LCD
+          strncpy(react_nombre_jugador, &var[8], 15);
+          react_nombre_jugador[15] = '\0'; // Aseguramos el fin de cadena
+      }
+      // 2. Capturamos el Modo y mandamos arrancar
       else if (strncmp(var, "modo=", 5) == 0) {
           msg_react.origen = 0; 
           msg_react.tipo_comando = 1;

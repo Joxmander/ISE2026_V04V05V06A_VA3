@@ -22,7 +22,8 @@
 #include "lcd.h"
 #include "adc.h"
 #include "rtc.h"
-#include "CerebroB.h"  // Inclusión correcta para el Nodo B
+#include "CerebroB.h"  
+#include "sensorProximidad.h"
 
 /* --- CONFIGURACIÓN DEL HILO PRINCIPAL (app_main) --- */
 #define APP_MAIN_STK_SZ (2048U)        
@@ -178,7 +179,9 @@ __NO_RETURN void app_main (void *arg) {
     
   ADC1_pins_F429ZI_config(); 
   ADC_Init_Single_Conversion(&hadc1, ADC1); 
-    
+   
+  SensorProximidad_Init();
+	
   netInitialize (); 
 
   timer_led_rojo = osTimerNew(TimerRojo_Callback, osTimerPeriodic, NULL, NULL);

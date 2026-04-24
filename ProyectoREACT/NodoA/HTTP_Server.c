@@ -24,6 +24,7 @@
 #include "adc.h"
 #include "rtc.h"
 #include "CerebroA.h"
+#include "joystick.h"
 
 /* --- CONFIGURACIÓN DEL HILO PRINCIPAL (app_main) --- */
 #define APP_MAIN_STK_SZ (2048U)        
@@ -36,7 +37,8 @@ const osThreadAttr_t app_main_attr = {
 /* --- VARIABLES GLOBALES COMPARTIDAS CON LA WEB --- */
 bool LEDrun;                                
 char lcd_text[2][20+1];                     
-uint8_t iniciar_parpadeo_sntp = 0;          
+uint8_t iniciar_parpadeo_sntp = 0;   
+
 
 /* --- VARIABLES PARA EL APARTADO 5 (Configuración Web) --- */
 uint8_t sntp_server_index = 0;              
@@ -86,8 +88,8 @@ uint8_t get_button (void) { return 0; }
 void netDHCP_Notify (uint32_t if_num, uint8_t option, const uint8_t *val, uint32_t len) { }
 
 void Time_Thread (void *argument) {
-  MSGQUEUE_OBJ_LCD_t msg_lcd;      
-  char t_buffer[20], d_buffer[20]; 
+// MSGQUEUE_OBJ_LCD_t msg_lcd;      
+//  char t_buffer[20], d_buffer[20]; 
   
   uint32_t contador_sntp_segundos = 0; 
   uint8_t  divisor_100ms = 0;          
@@ -133,17 +135,14 @@ void Time_Thread (void *argument) {
         osTimerStart(timer_led_rojo, 100U); 
     }
 
+// --- TAREAS CADA 1 SEGUNDO ---
     divisor_100ms++;
     if (divisor_100ms >= 10) {
         divisor_100ms = 0; 
         
-        RTC_ObtenerHoraFecha(t_buffer, d_buffer);
-        memset(&msg_lcd, 0, sizeof(msg_lcd));
-        strcpy(msg_lcd.Lin1, t_buffer); 
-        strcpy(msg_lcd.Lin2, d_buffer); 
-        osMessageQueuePut(mid_messageQueueLCD, &msg_lcd, 0, 0); 
-        
+        // Gestiono peticiones de internet (SNTP) para mantener el RTC interno actualizado
         contador_sntp_segundos++;
+        
         if (contador_sntp_segundos == 5 || (contador_sntp_segundos > 5 && (contador_sntp_segundos % 180 == 0))) {
             server_addr.addr_type = NET_ADDR_IP4;
             server_addr.port = 0; 
@@ -166,6 +165,7 @@ __NO_RETURN void app_main (void *arg) {
 
   LED_Initialize();
   Init_ThLCD(); 
+	Init_ThJoystick();
     
   ADC1_pins_F429ZI_config(); 
   ADC_Init_Single_Conversion(&hadc1, ADC1); 

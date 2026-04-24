@@ -2,7 +2,7 @@ t <!DOCTYPE html>
 t <html lang="es">
 t <head>
 t <meta charset="UTF-8">
-t t <title>Panel REACT - Nodo A</title>
+t <title>Panel REACT - Nodo A</title>
 t <style>
 t   body { font-family: 'Segoe UI', Tahoma, Geneva, sans-serif; 
 t          background-color: #eef2f5; color: #333; margin: 0; padding: 20px; }
@@ -52,16 +52,16 @@ t
 t   <h2>Gestor de Entrenamiento Cognitivo</h2>
 t   <form onsubmit="enviarComando(event, this)">
 t     <div class="form-group">
-t       <label><strong>Perfil de Usuario:</strong></label>
-t       <select name="user_id" style="margin-bottom: 10px;">
-t         <option value="0">0 - Invitado Local</option>
-t         <option value="1">1 - Atleta A (Cristian)</option>
-t         <option value="2">2 - Atleta B (Santiago)</option>
-t       </select><br>
+t       <label><strong>Nombre del Atleta:</strong></label><br>
+t       <input type="text" name="jugador" maxlength="15" value="Invitado" required style="margin-bottom: 10px;"><br>
+t       
 t       <label><strong>Seleccione Modo de Operaci&oacute;n:</strong></label><br>
 t       <select name="modo">
 t         <option value="1">1 - Memoria de Trabajo</option>
 t         <option value="2">2 - Control de Fuerza</option>
+t         <option value="3">3 - Inhibicion Motora</option>
+t         <option value="4">4 - Ritmo Constante</option>
+t         <option value="5">5 - Discriminacion</option>
 t       </select>
 t       <button type="submit">INICIAR PARTIDA</button>
 t     </div>
@@ -76,10 +76,9 @@ t     </div>
 t   </form>
 t </div>
 t
-t t <script>
-t   // 1. Enviar formularios sin recargar la página
+t <script>
 t   function enviarComando(e, form) {
-t       e.preventDefault(); // Evita que la página salte
+t       e.preventDefault(); 
 t       const formData = new URLSearchParams(new FormData(form));
 t       fetch('panel.cgi', {
 t           method: 'POST',
@@ -88,14 +87,12 @@ t           body: formData.toString()
 t       });
 t   }
 t
-t   // 2. Pedir datos al Nodo A cada segundo silenciosamente
 t   setInterval(function() {
 t       fetch('panel.cgi')
 t       .then(response => response.text())
 t       .then(html => {
 t           const parser = new DOMParser();
 t           const doc = parser.parseFromString(html, 'text/html');
-t           // Actualizamos SOLO las cajitas de texto
 t           document.getElementById('caja_estado').innerHTML = doc.getElementById('caja_estado').innerHTML;
 t           document.getElementById('caja_trama').innerHTML = doc.getElementById('caja_trama').innerHTML;
 t       });
