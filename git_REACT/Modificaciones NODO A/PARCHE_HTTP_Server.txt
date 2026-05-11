@@ -1,0 +1,21 @@
+PARCHE MÍNIMO DE HTTP_Server.c (Nodo A)
+========================================
+
+El único cambio necesario en HTTP_Server.c es descomentar la línea que
+arranca el hilo del orquestador del Cerebro. Sin esto, la cola
+colaEventosCerebro acumula mensajes que nadie lee y la fibra nunca
+transmite nada cuando se pulsan los botones de la web.
+
+UBICACIÓN: dentro de la función app_main(), bloque "INICIO NUEVO CÓDIGO REACT"
+
+ANTES:
+------
+  // Arrancamos el Cerebro usando la memoria estática que hemos definido arriba
+  //osThreadNew(Hilo_Orquestador_Cerebro, NULL, &cerebro_attr);
+
+DESPUÉS:
+--------
+  // Arrancamos el Cerebro usando la memoria estática que hemos definido arriba
+  osThreadNew(Hilo_Orquestador_Cerebro, NULL, &cerebro_attr);
+
+Nada más en este fichero. El resto del HTTP_Server.c queda igual.

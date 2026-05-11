@@ -1,0 +1,35 @@
+============================================================================
+PARCHE EN HTTP_Server.c (Nodo A)
+============================================================================
+
+Abre HTTP_Server.c y busca esta línea (en torno a la línea 224, dentro de
+app_main):
+
+    // === INICIO NUEVO CÓDIGO REACT ===
+    // Inicializamos la cola de mensajes de REACT
+    colaEventosCerebro = osMessageQueueNew(10, sizeof(MensajeCerebro_t), NULL);
+
+    // Arrancamos el Cerebro usando la memoria estática que hemos definido arriba
+    //osThreadNew(Hilo_Orquestador_Cerebro, NULL, &cerebro_attr);    <-- ESTA LÍNEA
+    // === FIN NUEVO CÓDIGO REACT ===
+
+
+CAMBIO REQUERIDO: descomentar esa línea. Queda así:
+
+    // === INICIO NUEVO CÓDIGO REACT ===
+    colaEventosCerebro = osMessageQueueNew(10, sizeof(MensajeCerebro_t), NULL);
+    osThreadNew(Hilo_Orquestador_Cerebro, NULL, &cerebro_attr);       // <-- DESCOMENTADO
+    // === FIN NUEVO CÓDIGO REACT ===
+
+============================================================================
+JUSTIFICACIÓN
+============================================================================
+
+Sin este cambio, el hilo Hilo_Orquestador_Cerebro nunca se crea, el orquestador
+nunca se ejecuta, y los mensajes que el CGI mete a colaEventosCerebro cuando
+el usuario pulsa un botón en la web se acumulan sin que nadie los lea.
+
+Resultado actual con la línea comentada: pulsar "Modo 1" en la web no provoca
+ningún efecto observable en el Nodo B.
+
+============================================================================
