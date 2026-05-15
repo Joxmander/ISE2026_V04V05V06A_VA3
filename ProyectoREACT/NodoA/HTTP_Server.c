@@ -2,11 +2,11 @@
  ******************************************************************************
  * @file    HTTP_Server.c
  * @author  Jose Vargas Gonzaga
- * @brief   Implementación del servidor HTTP
- * Contiene la lógica principal para atender las peticiones de la
- * red y servir las páginas estáticas y dinámicas. Este módulo
- * coordina las llamadas a CGI, gestión de sockets y mantenimiento
- * de la conexión con el hardware (ADC, RTC, etc.).
+ * @brief   Implementaci?n del servidor HTTP
+ * Contiene la l?gica principal para atender las peticiones de la
+ * red y servir las p?ginas est?ticas y din?micas. Este m?dulo
+ * coordina las llamadas a CGI, gesti?n de sockets y mantenimiento
+ * de la conexi?n con el hardware (ADC, RTC, etc.).
  ******************************************************************************
  */
     
@@ -26,7 +26,7 @@
 #include "CerebroA.h"
 #include "joystick.h"
 
-/* --- CONFIGURACIÓN DEL HILO PRINCIPAL (app_main) --- */
+/* --- CONFIGURACI?N DEL HILO PRINCIPAL (app_main) --- */
 #define APP_MAIN_STK_SZ (2048U)        
 uint64_t app_main_stk[APP_MAIN_STK_SZ / 8];
 const osThreadAttr_t app_main_attr = {
@@ -40,7 +40,7 @@ char lcd_text[2][20+1];
 uint8_t iniciar_parpadeo_sntp = 0;   
 
 
-/* --- VARIABLES PARA EL APARTADO 5 (Configuración Web) --- */
+/* --- VARIABLES PARA EL APARTADO 5 (Configuraci?n Web) --- */
 uint8_t sntp_server_index = 0;              
 const char* sntp_servers[] = {"Google NTP (216.239.35.0)", "Cloudflare NTP (162.159.200.1)"}; 
 const char* sntp_ips[] = {"216.239.35.0", "162.159.200.1"}; 
@@ -48,7 +48,7 @@ const char* sntp_ips[] = {"216.239.35.0", "162.159.200.1"};
 RTC_PeriodoAlarma_t periodo_seleccionado = ALARMA_CADA_1_MIN; 
 uint8_t alarma_habilitada_web = 1;          
 
-/* --- RECURSOS DE PERIFÉRICOS Y RED --- */
+/* --- RECURSOS DE PERIF?RICOS Y RED --- */
 ADC_HandleTypeDef hadc1;                    
 static NET_ADDR server_addr;                
 
@@ -175,7 +175,7 @@ __NO_RETURN void app_main (void *arg) {
   timer_led_rojo = osTimerNew(TimerRojo_Callback, osTimerPeriodic, NULL, NULL);
   timer_led_verde = osTimerNew(TimerVerde_Callback, osTimerPeriodic, NULL, NULL);
 
-  // === CÓDIGO REACT ===
+  // === C?DIGO REACT ===
   colaEventosCerebro = osMessageQueueNew(10, sizeof(MensajeCerebro_t), NULL);
   osThreadNew(Hilo_Orquestador_Cerebro, NULL, NULL);
   

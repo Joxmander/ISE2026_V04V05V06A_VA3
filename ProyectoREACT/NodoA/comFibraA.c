@@ -85,12 +85,12 @@ void FibraA_Init(void) {
     Driver_USART3.Initialize(USART3_Callback);
     Driver_USART3.PowerControl(ARM_POWER_FULL);
     
-    // 3. Configuro a 115200 bps, 8 bits de datos, sin paridad y 1 bit de parada.
+    // 3. Configuro a 9600 bps, 8 bits de datos, sin paridad y 1 bit de parada.
     Driver_USART3.Control(ARM_USART_MODE_ASYNCHRONOUS |
                           ARM_USART_DATA_BITS_8       |
                           ARM_USART_PARITY_NONE       |
                           ARM_USART_STOP_BITS_1       |
-                          ARM_USART_FLOW_CONTROL_NONE, 115200);
+                          ARM_USART_FLOW_CONTROL_NONE, 9600);
 
     // 4. MI ESCUDO ANTI-TORMENTAS (Configuraciones de protección por Hardware)
     // Fuerzo una resistencia Pull-Up en el pin de recepción (RX = PC11).

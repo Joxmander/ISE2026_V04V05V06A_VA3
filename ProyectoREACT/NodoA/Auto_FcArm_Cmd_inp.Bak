@@ -18,5 +18,13 @@ llblue.jpg,
 pabb.gif,
 time.cgi,
 panel.cgi,
-logo.png 
+logo.png,
+juego.cgi,
+records.cgi,
+bg_gear.png,
+hero_main.png,
+icon_fza.png,
+icon_inh.png,
+icon_mem.png,
+icon_rit.png 
 TO Web.c RTE NOPRINT ROOT(Web)

@@ -2,7 +2,7 @@
  ******************************************************************************
  * @file    CerebroA.h
  * @author  Jose Vargas Gonzaga
- * @brief   Cabecera del Orquestador de la Estación Base R.E.A.C.T.
+ * @brief   Cabecera del Orquestador de la Estaci?n Base R.E.A.C.T.
  ******************************************************************************
  */
 

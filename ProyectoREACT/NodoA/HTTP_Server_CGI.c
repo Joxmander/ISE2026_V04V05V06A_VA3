@@ -13,10 +13,11 @@
 #include <stdlib.h>
 #include "cmsis_os2.h"
 #include "rl_net.h"
-#include "rtc.h"          // Necesario para leer la hora
-#include "lcd.h"          // Necesario para enviar mensajes al LCD
-#include "Board_LED.h"    // ::Board Support:LED
-#include "CerebroA.h"     // <--- IMPORTANTE: Aquí importamos MensajeCerebro_t y la cola
+#include "rtc.h"          
+#include "lcd.h"          
+#include "Board_LED.h"    
+#include "CerebroA.h"     
+#include "eeprom.h"       
 
 #if      defined (__ARMCC_VERSION) && (__ARMCC_VERSION >= 6010050)
 #pragma  clang diagnostic push
@@ -26,7 +27,14 @@
 // === VARIABLES GLOBALES PARA LA WEB REACT ===
 char react_rx_trama[30] = "[A la espera de Loopback]";
 char react_estado_sistema[60] = "<span style='color:green;'>Activo / 45mA</span>";
-char react_nombre_jugador[16] = "Invitado"; // VARIABLE PARA EL NOMBRE
+char react_nombre_jugador[16] = "Invitado"; 
+
+// === VARIABLES EXTRACCION NODO B, EEPROM Y JOYSTICK ===
+extern uint16_t consumo_actual_mA;  
+extern RecordJuego_t tabla_records[MAX_RECORDS]; // Para el Top 10
+extern uint8_t react_web_nav_trigger;            // Para el salto web con joystick
+extern uint8_t modo_juego_actual;                // Modo seleccionado en la placa
+
 // ============================================
 // Variables externas
 extern uint16_t AD_in (uint32_t ch);
@@ -41,7 +49,7 @@ extern uint8_t alarma_habilitada_web;
 extern const char* sntp_servers[];
 
 // Variables Locales.
-static uint8_t P2;      // Variable local para guardar el estado de los 8 LEDs de la placa mbed
+static uint8_t P2;      
 static uint8_t ip_addr[NET_ADDR_IP6_LEN];
 static char    ip_string[40];
 
@@ -52,13 +60,10 @@ typedef struct {
 } MY_BUF;
 #define MYBUF(p)        ((MY_BUF *)p)
 
-/*----------------------------------------------------------------------------
-  1. netCGI_ProcessQuery: Procesa datos enviados por la URL (GET)
- *---------------------------------------------------------------------------*/
 void netCGI_ProcessQuery (const char *qstr) {
   netIF_Option opt = netIF_OptionMAC_Address;
-  int16_t      typ = 0;       
-  char var[40];       
+  int16_t      typ = 0;        
+  char var[40];        
 
   do {
     qstr = netCGI_GetEnvVar (qstr, var, sizeof (var));
@@ -72,7 +77,7 @@ void netCGI_ProcessQuery (const char *qstr) {
         if (var[1] == '4') { opt = netIF_OptionIP4_SubnetMask; }
         break;
       case 'g': 
-        if (var[1] == '4') { opt = netIF_OptionIP6_DefaultGateway; } 
+        if (var[1] == '4') { opt = netIF_OptionIP4_DefaultGateway; } 
         else               { opt = netIF_OptionIP6_DefaultGateway; }
         break;
       case 'p': 
@@ -99,27 +104,19 @@ void netCGI_ProcessQuery (const char *qstr) {
   } while (qstr); 
 }
 
-/*----------------------------------------------------------------------------
-  2. netCGI_ProcessData: Procesa datos enviados por formularios (POST)
- *---------------------------------------------------------------------------*/
 void netCGI_ProcessData (uint8_t code, const char *data, uint32_t len) {
-  char var[40];               
-  char passw[12];             
+  char var[40];                
+  char passw[12];              
   MSGQUEUE_OBJ_LCD_t msg_lcd; 
   bool update_lcd = false;    
-
-  // Instancia local para mandar mensajes al CerebroA
   static MensajeCerebro_t msg_react; 
 
   if (code != 0) return; 
 
-  P2 = 0;           
+  P2 = 0;            
   LEDrun = true;    
 
-  if (len == 0) {
-    LED_SetOut (P2);
-    return;
-  }
+  if (len == 0) { LED_SetOut (P2); return; }
 
   passw[0] = 1;
   uint8_t alarma_en_formulario = 0;
@@ -128,7 +125,6 @@ void netCGI_ProcessData (uint8_t code, const char *data, uint32_t len) {
     data = netCGI_GetEnvVar (data, var, sizeof (var));
     
     if (var[0] != 0) {
-      /* --- GESTIÓN DE LEDS --- */
       if      (strcmp (var, "led0=on") == 0) P2 |= 0x01;
       else if (strcmp (var, "led1=on") == 0) P2 |= 0x02;
       else if (strcmp (var, "led2=on") == 0) P2 |= 0x04;
@@ -139,70 +135,44 @@ void netCGI_ProcessData (uint8_t code, const char *data, uint32_t len) {
       else if (strcmp (var, "led7=on") == 0) P2 |= 0x80;
       else if (strcmp (var, "ctrl=Browser") == 0) LEDrun = false;
 
-      /* --- NUEVO: COMANDO DE BAJO CONSUMO DESDE LA WEB --- */
       else if (strcmp (var, "ctrl=sleep") == 0) {
           msg_react.origen = 0; 
-          msg_react.tipo_comando = 3; // Comando 3: Mandar a dormir al Nodo B
-          if (colaEventosCerebro != NULL) {
-              osMessageQueuePut(colaEventosCerebro, &msg_react, 0, 0);
-          }
+          msg_react.tipo_comando = 3; 
+          if (colaEventosCerebro != NULL) osMessageQueuePut(colaEventosCerebro, &msg_react, 0, 0);
+      }
+      
+      /* --- BORRADO DEL TOP 10 --- */
+      else if (strcmp (var, "ctrl=wipe_records") == 0) {
+          memset(tabla_records, 0, sizeof(RecordJuego_t) * MAX_RECORDS);
+          EEPROM_GuardarRecords(tabla_records);
       }
 
-      /* --- GESTIÓN DE PASSWORD --- */
       else if ((strncmp (var, "pw0=", 4) == 0) || (strncmp (var, "pw2=", 4) == 0)) {
         if (netHTTPs_LoginActive()) {
           if (passw[0] == 1) strcpy (passw, var+4);
           else if (strcmp (passw, var+4) == 0) netHTTPs_SetPassword (passw);
         }
       }
-
-      /* --- GESTIÓN DE PANTALLA LCD --- */
-      else if (strncmp (var, "lcd1=", 5) == 0) {
-        strcpy (lcd_text[0], var+5); 
-        update_lcd = true;
-      }
-      else if (strncmp (var, "lcd2=", 5) == 0) {
-        strcpy (lcd_text[1], var+5); 
-        update_lcd = true;
-      }
-
-      /* --- GESTIÓN APARTADO 5 (SNTP Y ALARMA RTC) --- */
-      else if (strncmp(var, "sntp=", 5) == 0) {
-        sntp_server_index = (uint8_t)atoi(&var[5]);
-      }
-      else if (strcmp(var, "alm_en=on") == 0) {
-        alarma_en_formulario = 1;
-      }
+      else if (strncmp (var, "lcd1=", 5) == 0) { strcpy (lcd_text[0], var+5); update_lcd = true; }
+      else if (strncmp (var, "lcd2=", 5) == 0) { strcpy (lcd_text[1], var+5); update_lcd = true; }
+      else if (strncmp(var, "sntp=", 5) == 0) sntp_server_index = (uint8_t)atoi(&var[5]);
+      else if (strcmp(var, "alm_en=on") == 0) alarma_en_formulario = 1;
       else if (strncmp(var, "periodo=", 8) == 0) {
         periodo_seleccionado = (RTC_PeriodoAlarma_t)atoi(&var[8]);
         RTC_ConfigurarAlarma(periodo_seleccionado);
       }
-
-      /* --- GESTIÓN REACT (ESTACIÓN BASE) --- */
-      // 1. Capturamos el texto libre del nombre (Llega como "jugador=Jose")
       else if (strncmp(var, "jugador=", 8) == 0) {
-          // Copiamos máximo 15 caracteres para no desbordar el LCD
           strncpy(react_nombre_jugador, &var[8], 15);
-          react_nombre_jugador[15] = '\0'; // Aseguramos el fin de cadena
+          react_nombre_jugador[15] = '\0'; 
       }
-      // 2. Capturamos el Modo y mandamos arrancar
       else if (strncmp(var, "modo=", 5) == 0) {
-          msg_react.origen = 0; 
-          msg_react.tipo_comando = 1;
+          msg_react.origen = 0; msg_react.tipo_comando = 1;
           msg_react.datos[0] = (uint8_t)atoi(&var[5]);
-          
-          if (colaEventosCerebro != NULL) {
-              osMessageQueuePut(colaEventosCerebro, &msg_react, 0, 0);
-          }
+          if (colaEventosCerebro != NULL) osMessageQueuePut(colaEventosCerebro, &msg_react, 0, 0);
       }
-      // 2. Trama Manual de Debug
       else if (strncmp(var, "trama_tx=", 9) == 0) {
-          msg_react.origen = 0; 
-          msg_react.tipo_comando = 2;
-          
-          if (colaEventosCerebro != NULL) {
-              osMessageQueuePut(colaEventosCerebro, &msg_react, 0, 0);
-          }
+          msg_react.origen = 0; msg_react.tipo_comando = 2;
+          if (colaEventosCerebro != NULL) osMessageQueuePut(colaEventosCerebro, &msg_react, 0, 0);
       }
     }
   } while (data); 
@@ -214,39 +184,62 @@ void netCGI_ProcessData (uint8_t code, const char *data, uint32_t len) {
     memset(&msg_lcd, 0, sizeof(MSGQUEUE_OBJ_LCD_t)); 
     strncpy(msg_lcd.Lin1, lcd_text[0], sizeof(msg_lcd.Lin1) - 1);
     strncpy(msg_lcd.Lin2, lcd_text[1], sizeof(msg_lcd.Lin2) - 1);
-    msg_lcd.barra = 0;
-    msg_lcd.amplitud = 0;
+    msg_lcd.barra = 0; msg_lcd.amplitud = 0;
     osMessageQueuePut(mid_messageQueueLCD, &msg_lcd, 0, 0);
   }
 }
 
-/*----------------------------------------------------------------------------
-  3. netCGI_Script: El "Generador" de contenido dinámico.
- *---------------------------------------------------------------------------*/
 uint32_t netCGI_Script (const char *env, char *buf, uint32_t buflen, uint32_t *pcgi) {
-  int32_t socket;
-  netTCP_State state;
-  NET_ADDR r_client;
   const char *lang;
   uint32_t len = 0U;            
   uint8_t id;
   static uint32_t adv;          
   netIF_Option opt = netIF_OptionMAC_Address;
   int16_t      typ = 0;
-    
   char t_str[20], d_str[20];    
+  
+  char id_val = (env[1] == ' ') ? env[2] : env[1];
 
   switch (env[0]) {
-    
-    // === PANEL REACT: ACTUALIZACIÓN EN VIVO ===
     case 'r':
-      if (env[2] == '1') { // Estado del sistema (Ej: Sleep / Activo)
-          len = (uint32_t)sprintf(buf, "%s", react_estado_sistema);
-      }
-      else if (env[2] == '2') { // Última trama de fibra
-          len = (uint32_t)sprintf(buf, "%s", react_rx_trama);
+      if (id_val == '1') len = (uint32_t)sprintf(buf, "%s", react_estado_sistema);
+      else if (id_val == '2') len = (uint32_t)sprintf(buf, "%s", react_rx_trama);
+      else if (id_val == '3') len = (uint32_t)sprintf(buf, "%u", consumo_actual_mA);
+      else if (id_val == '4') {
+          // Si el joystick lo pide, avisamos a la web para que navegue
+          if (react_web_nav_trigger) {
+              len = (uint32_t)sprintf(buf, "NAV:%d", modo_juego_actual);
+              react_web_nav_trigger = 0; 
+          } else {
+              len = (uint32_t)sprintf(buf, "WAIT");
+          }
       }
       break;
+
+    case 'h': 
+      RTC_ObtenerHoraFecha(t_str, d_str);
+      if (id_val == '1') len = (uint32_t)sprintf(buf, "%s", t_str);
+      else if (id_val == '2') len = (uint32_t)sprintf(buf, "%s", d_str);
+      break;
+
+    // === EXTRACCION TOP 10 DESDE EEPROM ===
+    case 'k':
+    {
+      uint8_t idx = 0;
+      char campo = '1';
+      if (env[1] == ' ') { idx = env[2] - '0'; campo = env[4]; } 
+      else { idx = env[1] - '0'; campo = env[3]; }
+
+      if (idx < MAX_RECORDS) {
+        switch (campo) {
+          case '1': len = (uint32_t)sprintf(buf, "%s", tabla_records[idx].nombre_jugador[0] ? tabla_records[idx].nombre_jugador : "--"); break;
+          case '2': len = (uint32_t)sprintf(buf, "%u", tabla_records[idx].nivel); break;
+          case '3': len = (uint32_t)sprintf(buf, "%u", tabla_records[idx].puntuacion); break;
+          case '4': len = (uint32_t)sprintf(buf, "%s", tabla_records[idx].fecha_hora[0] ? tabla_records[idx].fecha_hora : "--/--/---- --:--"); break;
+        }
+      }
+      break;
+    }
 
     case 'a' :
       switch (env[3]) {
@@ -268,39 +261,22 @@ uint32_t netCGI_Script (const char *env, char *buf, uint32_t buflen, uint32_t *p
       break;
 
     case 'b': 
-      if (env[2] == 'c') {
+      if (id_val == 'c') {
         len = (uint32_t)sprintf (buf, &env[4], LEDrun ?     ""     : "selected",
                                                LEDrun ? "selected" :    ""     );
         break;
       }
-      id = env[2] - '0';
+      id = id_val - '0';
       if (id > 7) id = 0;
       id = (uint8_t)(1U << id);
       len = (uint32_t)sprintf (buf, &env[4], (P2 & id) ? "checked" : "");
       break;
 
     case 'c': 
-      while ((uint32_t)(len + 150) < buflen) {
-        socket = ++MYBUF(pcgi)->idx;
-        state  = netTCP_GetState (socket);
-        if (state == netTCP_StateINVALID) return ((uint32_t)len);
-        
-        len += (uint32_t)sprintf (buf+len,   "<tr align=\"center\">");
-        if (state <= netTCP_StateCLOSED) {
-          len += (uint32_t)sprintf (buf+len, "<td>%d</td><td>%d</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>\r\n", socket, netTCP_StateCLOSED);
-        } else if (state == netTCP_StateLISTEN) {
-          len += (uint32_t)sprintf (buf+len, "<td>%d</td><td>%d</td><td>%d</td><td>-</td><td>-</td><td>-</td></tr>\r\n", socket, netTCP_StateLISTEN, netTCP_GetLocalPort(socket));
-        } else {
-          netTCP_GetPeer (socket, &r_client, sizeof(r_client));
-          netIP_ntoa (r_client.addr_type, r_client.addr, ip_string, sizeof (ip_string));
-          len += (uint32_t)sprintf (buf+len, "<td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td></tr>\r\n", socket, netTCP_StateLISTEN, netTCP_GetLocalPort(socket), netTCP_GetTimer(socket), ip_string, r_client.port);
-        }
-      }
-      len |= (1u << 31); 
       break;
 
     case 'd': 
-      switch (env[2]) {
+      switch (id_val) {
         case '1': len = (uint32_t)sprintf (buf, &env[4], netHTTPs_LoginActive() ? "Enabled" : "Disabled"); break;
         case '2': len = (uint32_t)sprintf (buf, &env[4], netHTTPs_GetPassword()); break;
       }
@@ -317,7 +293,7 @@ uint32_t netCGI_Script (const char *env, char *buf, uint32_t buflen, uint32_t *p
       break;
 
     case 'g': 
-      switch (env[2]) {
+      switch (id_val) {
         case '1': 
           adv = AD_in (0); 
           len = (uint32_t)sprintf (buf, &env[4], adv);
@@ -331,19 +307,9 @@ uint32_t netCGI_Script (const char *env, char *buf, uint32_t buflen, uint32_t *p
           break;
       }
       break;
-
-    case 'h': 
-      RTC_ObtenerHoraFecha(t_str, d_str);
-      if (env[1] == '1') {
-        len = (uint32_t)sprintf(buf, "%s", t_str);
-      }
-      else if (env[1] == '2') {
-        len = (uint32_t)sprintf(buf, "%s", d_str);
-      }
-      break;
         
     case 's':
-      switch (env[1]) {
+      switch (id_val) {
         case '1': 
           if ((env[2] - '0') == sntp_server_index) {
             len = (uint32_t)sprintf(buf, "%s", "checked"); 

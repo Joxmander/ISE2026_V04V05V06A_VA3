@@ -205,7 +205,7 @@ void RTC_ActualizarDesdeUnix(uint32_t segundos_unix) {
 
     // 2. CORRECCIÓN DE HUSO HORARIO
     // Estando en España Peninsular (UTC+1 en horario de invierno), le sumo 3600 segundos (1 hora).
-    uint32_t tiempo_local = segundos_unix + 3600;
+    uint32_t tiempo_local = segundos_unix + 7200;
 
     // --- 3. EXTRACCIÓN DE LA HORA ---
     // Saco el módulo de los segundos que tiene un día (86400) para quedarme solo con el tiempo transcurrido "hoy".

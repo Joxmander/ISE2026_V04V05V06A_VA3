@@ -39,6 +39,8 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include <stdio.h>
+#include "stm32f4xx.h"
 
 #ifdef RTE_CMSIS_RTOS2_RTX5
 /**
@@ -121,6 +123,12 @@ int main(void)
   while (1)
   {
   }
+}
+
+/* Redirige printf a la consola ITM del ST-LINK (Debug printf Viewer) */
+int fputc(int ch, FILE *f) {
+    ITM_SendChar(ch);
+    return ch;
 }
 
 /**
