@@ -476,6 +476,66 @@
           </Files>
         </Group>
         <Group>
+          <GroupName>Piezos</GroupName>
+          <Files>
+            <File>
+              <FileName>spz.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\spz.h</FilePath>
+            </File>
+            <File>
+              <FileName>spz.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\spz.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>RGB</GroupName>
+          <Files>
+            <File>
+              <FileName>rgb.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\rgb.h</FilePath>
+            </File>
+            <File>
+              <FileName>rgb.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\rgb.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>ModosDeJuego</GroupName>
+          <Files>
+            <File>
+              <FileName>fsm_modos.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\fsm_modos.h</FilePath>
+            </File>
+            <File>
+              <FileName>fsm_modos.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\fsm_modos.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Buzzer</GroupName>
+          <Files>
+            <File>
+              <FileName>buzzer.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\buzzer.h</FilePath>
+            </File>
+            <File>
+              <FileName>buzzer.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\buzzer.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
           <GroupName>::Board Support</GroupName>
         </Group>
         <Group>

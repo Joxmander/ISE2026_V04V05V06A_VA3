@@ -41,51 +41,55 @@ volatile uint8_t  mano_en_neutro = 0; // 1 = Mano detectada, 0 = Mano fuera
  * @brief Getter thread-safe para obtener la última distancia leída.
  */
 uint16_t ToF_GetDistancia(void) {
-    return distancia_actual_mm;
+    //return distancia_actual_mm;
+	return 100; // Simulamos que la mano está a 100mm (10 cm)
 }
 
 /**
  * @brief Función para que el CerebroB sepa si el jugador ha vuelto a la posición de inicio.
  */
 uint8_t ToF_ManoEnPosicionNeutra(void) {
-    return mano_en_neutro;
+    //return mano_en_neutro;
+	return 1; // 1 = Le decimos a la máquina de estados que la mano SIEMPRE está lista
 }
 
 /**
  * @brief Inicializa los pines, el periférico I2C1 y crea el hilo del sensor.
  */
 void SensorProximidad_Init(void) {
-    // 1. Enciendo los relojes de los periféricos que voy a usar
-    __HAL_RCC_GPIOB_CLK_ENABLE();
-    __HAL_RCC_I2C1_CLK_ENABLE();
+//    // 1. Enciendo los relojes de los periféricos que voy a usar
+//    __HAL_RCC_GPIOB_CLK_ENABLE();
+//    __HAL_RCC_I2C1_CLK_ENABLE();
 
-    // 2. Configuro los pines PB8 (SCL) y PB9 (SDA) en modo Alterno Open Drain
-    // Uso Pull-ups internos como medida extra de seguridad para el bus I2C
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-    GPIO_InitStruct.Pin = GPIO_PIN_8 | GPIO_PIN_9;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;      
-    GPIO_InitStruct.Pull = GPIO_PULLUP;          
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-    GPIO_InitStruct.Alternate = GPIO_AF4_I2C1;   
-    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+//    // 2. Configuro los pines PB8 (SCL) y PB9 (SDA) en modo Alterno Open Drain
+//    // Uso Pull-ups internos como medida extra de seguridad para el bus I2C
+//    GPIO_InitTypeDef GPIO_InitStruct = {0};
+//    GPIO_InitStruct.Pin = GPIO_PIN_8 | GPIO_PIN_9;
+//    GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;      
+//    GPIO_InitStruct.Pull = GPIO_PULLUP;          
+//    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+//    GPIO_InitStruct.Alternate = GPIO_AF4_I2C1;   
+//    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-    // 3. Configuro el periférico I2C1 a 100kHz (Standard Mode)
-    hi2c1_tof.Instance = I2C1;
-    hi2c1_tof.Init.ClockSpeed = 100000;
-    hi2c1_tof.Init.DutyCycle = I2C_DUTYCYCLE_2;
-    hi2c1_tof.Init.OwnAddress1 = 0;
-    hi2c1_tof.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-    hi2c1_tof.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-    hi2c1_tof.Init.OwnAddress2 = 0;
-    hi2c1_tof.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-    hi2c1_tof.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-    
-    if (HAL_I2C_Init(&hi2c1_tof) != HAL_OK) {
-        printf("[ToF] Error de inicializacion hardware I2C1\r\n");
-    }
+//    // 3. Configuro el periférico I2C1 a 100kHz (Standard Mode)
+//    hi2c1_tof.Instance = I2C1;
+//    hi2c1_tof.Init.ClockSpeed = 100000;
+//    hi2c1_tof.Init.DutyCycle = I2C_DUTYCYCLE_2;
+//    hi2c1_tof.Init.OwnAddress1 = 0;
+//    hi2c1_tof.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+//    hi2c1_tof.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+//    hi2c1_tof.Init.OwnAddress2 = 0;
+//    hi2c1_tof.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+//    hi2c1_tof.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+//    
+//    if (HAL_I2C_Init(&hi2c1_tof) != HAL_OK) {
+//        printf("[ToF] Error de inicializacion hardware I2C1\r\n");
+//    }
 
-    // 4. Creo el hilo que controlará la máquina de estados del sensor
-    tid_SensorProximidad = osThreadNew(Hilo_SensorProximidad, NULL, NULL);
+//    // 4. Creo el hilo que controlará la máquina de estados del sensor
+//    tid_SensorProximidad = osThreadNew(Hilo_SensorProximidad, NULL, NULL);
+
+// /////No inicializamos el I2C para que el RTOS no se cuelgue buscando el sensor
 }
 
 // Función auxiliar para escribir en I2C de forma limpia y mantener el código legible
