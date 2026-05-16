@@ -117,8 +117,12 @@ int main(void)
 
   /* Create application main thread */
 
-	osThreadNew(Hilo_Orquestador_CerebroB, NULL, NULL);
+	//osThreadNew(Hilo_Orquestador_CerebroB, NULL, NULL);
 
+
+  extern void CerebroBTest_Start(void);
+   CerebroBTest_Start();
+	 
   /* Start thread execution */
   osKernelStart();
 #endif
@@ -129,11 +133,6 @@ int main(void)
   }
 }
 
-/* Redirige printf a la consola ITM del ST-LINK (Debug printf Viewer) */
-int fputc(int ch, FILE *f) {
-    ITM_SendChar(ch);
-    return ch;
-}
 
 /**
   * @brief  System Clock Configuration

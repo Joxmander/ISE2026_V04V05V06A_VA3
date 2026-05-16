@@ -58,7 +58,7 @@ int Init_Th_piezo (void) {
  
 void Th_spz (void *argument) {
   
-  const uint16_t threshold = 150;       //Ajuste segun el sensor  Umbral minimo que debe superar la se?al del piezo para considerar que ha habido un golpe
+  const uint16_t threshold = 300;       //Ajuste segun el sensor  Umbral minimo que debe superar la se?al del piezo para considerar que ha habido un golpe
   const float alpha = 0.2f;            //Filtro IIR
   
   

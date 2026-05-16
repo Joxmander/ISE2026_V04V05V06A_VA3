@@ -408,6 +408,11 @@
               <FileType>1</FileType>
               <FilePath>.\CerebroB.c</FilePath>
             </File>
+            <File>
+              <FileName>CerebroB_test.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\CerebroB_test.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -488,6 +493,16 @@
               <FileType>1</FileType>
               <FilePath>.\spz.c</FilePath>
             </File>
+            <File>
+              <FileName>Pads.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\Pads.h</FilePath>
+            </File>
+            <File>
+              <FileName>Pads.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Pads.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -502,6 +517,16 @@
               <FileName>rgb.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\rgb.c</FilePath>
+            </File>
+            <File>
+              <FileName>LedsRGB.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\LedsRGB.h</FilePath>
+            </File>
+            <File>
+              <FileName>LedsRGB.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\LedsRGB.c</FilePath>
             </File>
           </Files>
         </Group>
