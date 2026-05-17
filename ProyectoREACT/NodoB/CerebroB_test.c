@@ -1,20 +1,20 @@
 /**
  ******************************************************************************
  * @file    CerebroB_test.c
- * @author  Jose Vargas Gonzaga
+ * @author  Jose Vargas Gonzaga (Adaptado a 4 Canales)
  * @brief   Hilo de prueba integrado para el mockup del Nodo B.
  *
  * Secuencia de arranque (te ayuda a aislar el problema paso a paso):
- *   1. Init de Pads, LEDs y ToF (con prints).
- *   2. Test ALL-SOLID -> los DOS anillos deben verse ROJOS, luego VERDES, luego AZULES.
- *      Si no se ven -> el problema esta en wiring / alimentacion, NO en software.
- *   3. Scan secuencial LED por LED en blanco -> para contar fisicamente.
- *   4. Bucle principal: golpe pad 0 -> anillo 0 verde; golpe pad 1 -> anillo 1 azul.
- *      Tambien printea cada 100 ms la distancia del ToF y los valores raw de los pads.
+ * 1. Init de Pads, LEDs y ToF (con prints).
+ * 2. Test ALL-SOLID -> los CUATRO anillos deben verse ROJOS, luego VERDES, luego AZULES.
+ * Si no se ven -> el problema esta en wiring / alimentacion, NO en software.
+ * 3. Scan secuencial LED por LED en blanco -> para contar fisicamente.
+ * 4. Bucle principal: golpe en cualquier pad -> su anillo correspondiente se ilumina.
+ * Tambien printea cada 100 ms la distancia del ToF y los valores raw de los pads.
  *
  * Salida de los printf: VENTANA "Debug (printf) Viewer" de Keil via ITM SWO.
- *   Necesitas activar trace en Keil: Debug -> Settings -> Trace ->
- *   Enable Trace + ITM Stimulus Port 0 + Core Clock = 180 MHz.
+ * Necesitas activar trace en Keil: Debug -> Settings -> Trace ->
+ * Enable Trace + ITM Stimulus Port 0 + Core Clock = 180 MHz.
  ******************************************************************************
  */
 
@@ -39,8 +39,8 @@ static const osThreadAttr_t attr_CerebroBTest = {
 
 /**
  * @brief Retarget de printf -> ITM SWO (Debug (printf) Viewer de Keil).
- *        Truco magico de Jox: con esto, todos los printf de cualquier .c
- *        salen por la ventana de debug sin necesidad de USART.
+ * Truco magico de Jox: con esto, todos los printf de cualquier .c
+ * salen por la ventana de debug sin necesidad de USART.
  */
 int fputc(int ch, FILE *f) {
     (void)f;
@@ -54,17 +54,17 @@ static void Hilo_CerebroBTest(void *argument) {
     (void)argument;
 
     /* ===== FASE 0: arranque ===== */
-    printf("\r\n=== NODO B MOCKUP - TEST INTEGRADO ===\r\n");
+    printf("\r\n=== NODO B MOCKUP - TEST INTEGRADO 4 CANALES ===\r\n");
     printf("SYSCLK=%lu Hz  HCLK=%lu Hz\r\n",
            (unsigned long)HAL_RCC_GetSysClockFreq(),
            (unsigned long)HAL_RCC_GetHCLKFreq());
 
     /* ===== FASE 1: init de perifericos ===== */
-    printf("[INIT] Pads (PC3, PF10) -> ADC3 ... ");
+    printf("[INIT] Pads (PC3, PF10, PF3, PF5) -> ADC3 ... ");
     Pads_Init();
     printf("OK\r\n");
 
-    printf("[INIT] LedsRGB (PB6 + PD13) TIM4 + 2xDMA ... ");
+    printf("[INIT] LedsRGB (PB6, PD13, PC6, PC7) ... ");
     LedsRGB_Init();
     printf("OK\r\n");
 
@@ -73,7 +73,7 @@ static void Hilo_CerebroBTest(void *argument) {
     printf("OK\r\n");
 
     /* ===== FASE 2: TEST ALL-SOLID de los LEDs ===== */
-    printf("[TEST] LEDs solido ROJO 2s. Mira los anillos AHORA.\r\n");
+    printf("[TEST] LEDs solido ROJO 2s. Mira los 4 anillos AHORA.\r\n");
     LedsRGB_TestAllSolid(255U, 0U, 0U);
     osDelay(2000U);
 
@@ -88,52 +88,50 @@ static void Hilo_CerebroBTest(void *argument) {
     printf("[TEST] Si no se vio ningun color -> revisa cableado/alimentacion.\r\n");
 
     /* ===== FASE 3: SCAN secuencial para contar LEDs por anillo ===== */
-    printf("[TEST] Scan LED-por-LED en blanco. Cuenta cuantos hay en cada anillo.\r\n");
-    LedsRGB_Scan();
-    printf("[TEST] Scan terminado. Si los anillos no tenian 16 LEDs cada uno,\r\n");
-    printf("       edita WS2812_LEDS_POR_ANILLO en LedsRGB.h y recompila.\r\n");
+    /* Descomenta las dos lineas de abajo si quieres hacer el escaneo lento inicial */
+    // printf("[TEST] Scan LED-por-LED en blanco. Cuenta cuantos hay en cada anillo.\r\n");
+    // LedsRGB_Scan(); 
 
     /* ===== FASE 4: bucle principal de juego ===== */
-    printf("[MAIN] Golpea los pads. Pad 0 -> verde, Pad 1 -> azul.\r\n");
+    printf("[MAIN] Golpea los pads. Cada pad enciende su anillo.\r\n");
     while (1) {
 
         /* 1. Sondeo de pads (cada iteracion, ~2 ms) */
         Pads_Poll();
 
-        /* 2. Pad 0 (PC3) golpeado -> Anillo 0 verde durante 200 ms */
+        /* 2. Feedback de golpes */
         if (Pads_HayGolpe(0U)) {
             printf("[PAD] Golpe PAD 0 (raw=%u)\r\n", (unsigned)Pads_RawValue(0U));
-            LedsRGB_Clear();
-            LedsRGB_FillAnillo(0U, 0U, 255U, 0U);
-            LedsRGB_Show();
-            osDelay(200U);
-            LedsRGB_Clear();
-            LedsRGB_Show();
+            LedsRGB_Clear(); LedsRGB_FillAnillo(0U, 0U, 255U, 0U); LedsRGB_Show();
+            osDelay(200U); LedsRGB_Clear(); LedsRGB_Show();
         }
-
-        /* 3. Pad 1 (PF10) golpeado -> Anillo 1 azul durante 200 ms */
         if (Pads_HayGolpe(1U)) {
             printf("[PAD] Golpe PAD 1 (raw=%u)\r\n", (unsigned)Pads_RawValue(1U));
-            LedsRGB_Clear();
-            LedsRGB_FillAnillo(1U, 0U, 0U, 255U);
-            LedsRGB_Show();
-            osDelay(200U);
-            LedsRGB_Clear();
-            LedsRGB_Show();
+            LedsRGB_Clear(); LedsRGB_FillAnillo(1U, 0U, 0U, 255U); LedsRGB_Show();
+            osDelay(200U); LedsRGB_Clear(); LedsRGB_Show();
+        }
+        if (Pads_HayGolpe(2U)) {
+            printf("[PAD] Golpe PAD 2 (raw=%u)\r\n", (unsigned)Pads_RawValue(2U));
+            LedsRGB_Clear(); LedsRGB_FillAnillo(2U, 255U, 0U, 0U); LedsRGB_Show();
+            osDelay(200U); LedsRGB_Clear(); LedsRGB_Show();
+        }
+        if (Pads_HayGolpe(3U)) {
+            printf("[PAD] Golpe PAD 3 (raw=%u)\r\n", (unsigned)Pads_RawValue(3U));
+            LedsRGB_Clear(); LedsRGB_FillAnillo(3U, 255U, 255U, 0U); LedsRGB_Show();
+            osDelay(200U); LedsRGB_Clear(); LedsRGB_Show();
         }
 
-        /* 4. Telemetria periodica (cada 100 ms = 50 iteraciones de 2 ms) */
+        /* 3. Telemetria periodica (cada 100 ms = 50 iteraciones de 2 ms) */
         contador++;
         if (contador >= 50U) {
             contador = 0U;
-            printf("[STAT] ToF=%u mm  neutro=%u | RAW p0=%u p1=%u\r\n",
+            printf("[STAT] ToF=%u mm | p0=%u p1=%u p2=%u p3=%u\r\n",
                    (unsigned)ToF_GetDistancia(),
-                   (unsigned)ToF_ManoEnPosicionNeutra(),
-                   (unsigned)Pads_RawValue(0U),
-                   (unsigned)Pads_RawValue(1U));
+                   (unsigned)Pads_RawValue(0U), (unsigned)Pads_RawValue(1U),
+                   (unsigned)Pads_RawValue(2U), (unsigned)Pads_RawValue(3U));
         }
 
-        /* 5. Cadencia del hilo */
+        /* 4. Cadencia del hilo */
         osDelay(2U);
     }
 }

@@ -48,6 +48,7 @@
 #include <string.h>
 #include "stm32f4xx_hal.h"
 #include "cmsis_os2.h"
+#include "LedsRGB.h"
 
 /* ========================================================================== */
 /*                          PARÁMETROS DEL JUEGO                              */
@@ -1002,4 +1003,30 @@ static rgb_color_t ElegirColorNoRojo(void) {
         case 2:  return COLOR_BLANCO;
         default: return COLOR_VERDE;
     }
+}
+// ====================================================================
+// PUENTE DE COMPATIBILIDAD CORREGIDO PARA EL JUEGO (fsm_modos.c)
+// ====================================================================
+
+void rgb_encender_pad(uint8_t pad, rgb_color_t color) {
+    LedsRGB_FillAnillo(pad, color.r, color.g, color.b);
+    LedsRGB_Show();
+}
+
+void rgb_apagar_pad(uint8_t pad) {
+    LedsRGB_FillAnillo(pad, 0U, 0U, 0U);
+    LedsRGB_Show();
+}
+
+void rgb_encender_todos(rgb_color_t color) {
+    LedsRGB_FillAnillo(0, color.r, color.g, color.b);
+    LedsRGB_FillAnillo(1, color.r, color.g, color.b);
+    LedsRGB_FillAnillo(2, color.r, color.g, color.b);
+    LedsRGB_FillAnillo(3, color.r, color.g, color.b);
+    LedsRGB_Show();
+}
+
+void rgb_apagar_todos(void) {
+    LedsRGB_Clear();
+    LedsRGB_Show();
 }

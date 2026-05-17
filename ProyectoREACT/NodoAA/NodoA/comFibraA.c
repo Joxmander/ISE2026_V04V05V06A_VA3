@@ -1,137 +1,222 @@
 /**
  ******************************************************************************
- * @file    comFibraA.c
+ * @file    CerebroA.c
  * @author  Jose Vargas Gonzaga
- * @brief   Implementación del Protocolo R.E.A.C.T. en UART con Checksum.
- * Aquí gestiono el bajo nivel del puerto serie. Mi principal objetivo con 
- * este diseño es aislar completamente el ruido de la fibra óptica del RTOS,
- * garantizando que el servidor web no colapse por exceso de interrupciones.
  ******************************************************************************
  */
 
+#include "CerebroA.h"
 #include "comFibraA.h"
-#include "stm32f4xx_hal.h"
-#include "Driver_USART.h"
+#include "cmsis_os2.h"
+#include "lcd.h"
+#include "joystick.h"
+#include "rtc.h"       
+#include "eeprom.h"    
+#include <stdio.h>
+#include <string.h>
+#include <stdbool.h> // Necesario para los booleanos
 
-// Importo el driver CMSIS estándar de la USART3
-extern ARM_DRIVER_USART Driver_USART3;
+extern char react_rx_trama[30];
+extern char react_estado_sistema[60];
+extern char react_nombre_jugador[16]; 
+extern osMessageQueueId_t id_MsgQueue_Joystick;
 
-// Mi variable global para la cola de mensajes
-osMessageQueueId_t colaFibraRX = NULL;
+uint16_t consumo_actual_mA = 0;
 
-// Variables estáticas para mi máquina de estados de recepción.
-// Las declaro globales a este archivo para que no se pierdan entre interrupciones.
-static uint8_t rx_byte;              // Mi buffer para leer de byte en byte.
-static uint8_t rx_buffer[FRAME_SIZE]; // Almacenamiento temporal de la trama entrante.
-static uint8_t rx_index = 0;         // Puntero para saber por qué byte voy.
+// === NUEVA VARIABLE PARA CONTROLAR EL SLEEP ===
+static bool nodo_b_dormido = false;
 
-/**
- * @brief Callback invocado por el Driver CMSIS de USART desde la interrupción.
- * He diseñado esta función para que sea extremadamente corta y no bloqueante.
- * Uso una lectura byte a byte para recuperarme al instante de cualquier 
- * desincronización por ruido eléctrico.
- */
-void USART3_Callback(uint32_t event) {
-    if (event & ARM_USART_EVENT_RECEIVE_COMPLETE) {
-        
-        // Mi máquina de estados para ensamblar la trama sobre la marcha
-        if (rx_index == 0) {
-            // Solo empiezo a guardar si el primer byte coincide con mi SOF
-            if (rx_byte == SOF_BYTE) {
-                rx_buffer[rx_index++] = rx_byte;
+typedef enum {
+    ESTADO_REPOSO,      
+    ESTADO_SEL_MODO,    
+    ESTADO_JUGANDO      
+} EstadoMenu_t;
+
+static EstadoMenu_t estado_actual = ESTADO_REPOSO;
+static uint8_t modo_juego_actual = 1; 
+
+#define NUM_MODOS 5
+const char* nombres_modos[NUM_MODOS] = {
+    "Memoria Trab.", 
+    "Ctrl Fuerza", 
+    "Inhib. Motora", 
+    "Ritmo Const.", 
+    "Discriminacion"
+};
+
+static uint32_t tiempo_inicio_partida = 0;
+
+void Actualizar_LCD_Menu() {
+    MSGQUEUE_OBJ_LCD_t msg_lcd;
+    memset(&msg_lcd, 0, sizeof(msg_lcd));
+    msg_lcd.barra = 0;
+    msg_lcd.amplitud = 0;
+    char t_str[20], d_str[20];
+
+    switch(estado_actual) {
+        case ESTADO_REPOSO:
+            RTC_ObtenerHoraFecha(t_str, d_str);
+            snprintf(msg_lcd.Lin1, sizeof(msg_lcd.Lin1), "      %s      ", t_str);
+            snprintf(msg_lcd.Lin2, sizeof(msg_lcd.Lin2), "   Pulse Centro   ");
+            break;
+        case ESTADO_SEL_MODO:
+            snprintf(msg_lcd.Lin1, sizeof(msg_lcd.Lin1), "MODO:   (Arr/Aba)   ");
+            snprintf(msg_lcd.Lin2, sizeof(msg_lcd.Lin2), "-> %-17s", nombres_modos[modo_juego_actual - 1]);
+            break;
+        case ESTADO_JUGANDO:
+            snprintf(msg_lcd.Lin1, sizeof(msg_lcd.Lin1), "   PARTIDA ACTIVA   ");
+            snprintf(msg_lcd.Lin2, sizeof(msg_lcd.Lin2), " U:%-16s", react_nombre_jugador);
+            break;
+    }
+    osMessageQueuePut(mid_messageQueueLCD, &msg_lcd, 0, 0U);
+}
+
+void Hilo_Orquestador_Cerebro(void *argument) {
+    TramaFibra_t mensajeFibraRX;
+    MensajeCerebro_t mensajeWebRX;
+    MSGQUEUE_JOY_t mensajeJoyRX;
+    osStatus_t estado_fibra;
+    uint8_t tick_reloj = 0; 
+    uint8_t contador_ping = 0; 
+
+    FibraA_Init();
+    
+    if (EEPROM_Init()) {
+        EEPROM_CargarRecords(tabla_records);
+        if (tabla_records[0].puntuacion == 0xFFFFFFFF) {
+            memset(tabla_records, 0, sizeof(RecordJuego_t) * MAX_RECORDS);
+            EEPROM_GuardarRecords(tabla_records);
+        }
+    }
+    Actualizar_LCD_Menu();
+
+    while (1) {
+        // 1. ESCUCHAR A LA WEB
+        if (osMessageQueueGet(colaEventosCerebro, &mensajeWebRX, NULL, 0U) == osOK) {
+            if (mensajeWebRX.tipo_comando == 1) { 
+                modo_juego_actual = mensajeWebRX.datos[0];
+                estado_actual = ESTADO_JUGANDO;
+                tiempo_inicio_partida = osKernelGetTickCount(); 
+                Actualizar_LCD_Menu();
+                
+                // Si estaba dormido, al mandar juego se despertará
+                nodo_b_dormido = false; 
+                FibraA_SendFrame(0x30, modo_juego_actual, 0x00, 0x00); 
+            } 
+            else if (mensajeWebRX.tipo_comando == 3) { 
+                FibraA_SendFrame(0x40, 0x00, 0x00, 0x00);
             }
-            // Si llega basura (ruido), simplemente la ignoro y no avanzo el índice.
         } 
-        else {
-            rx_buffer[rx_index++] = rx_byte;
-            
-            // Cuando ya tengo los 6 bytes, evalúo la trama
-            if (rx_index >= FRAME_SIZE) {
-                rx_index = 0; // Armo la máquina para la siguiente trama
-                
-                // Calculo el Checksum haciendo un XOR lógico de mis datos
-                uint8_t calc_chk = rx_buffer[1] ^ rx_buffer[2] ^ rx_buffer[3] ^ rx_buffer[4];
-                
-                // Si el paquete está íntegro, extraigo la información útil
-                if (calc_chk == rx_buffer[5]) {
-                    TramaFibra_t nuevaTrama;
-                    nuevaTrama.tipo_comando = rx_buffer[1];
-                    nuevaTrama.payload[0] = rx_buffer[2];
-                    nuevaTrama.payload[1] = rx_buffer[3];
-                    nuevaTrama.payload[2] = rx_buffer[4];
-                    
-                    // Delega el procesamiento al sistema operativo mediante IPC (Cola).
-                    // Uso un timeout de 0 porque dentro de una interrupción no puedo bloquearme.
-                    if (colaFibraRX != NULL) {
-                        osMessageQueuePut(colaFibraRX, &nuevaTrama, 0, 0U);
-                    }
+        
+        // 2. ESCUCHAR AL JOYSTICK
+        if (osMessageQueueGet(id_MsgQueue_Joystick, &mensajeJoyRX, NULL, 0U) == osOK) {
+            if (mensajeJoyRX.pulso == PUL_CORTA) { 
+                osDelay(50U); 
+                switch(estado_actual) {
+                    case ESTADO_REPOSO:
+                        if (mensajeJoyRX.gesto == CENTRO) {
+                            strncpy(react_nombre_jugador, "Invitado", 15);
+                            estado_actual = ESTADO_SEL_MODO;
+                            Actualizar_LCD_Menu();
+                        }
+                        break;
+                    case ESTADO_SEL_MODO:
+                        if (mensajeJoyRX.gesto == ARRIBA) modo_juego_actual = (modo_juego_actual % NUM_MODOS) + 1;
+                        if (mensajeJoyRX.gesto == ABAJO) modo_juego_actual = (modo_juego_actual == 1) ? NUM_MODOS : (modo_juego_actual - 1);
+                        if (mensajeJoyRX.gesto == CENTRO) {
+                            estado_actual = ESTADO_JUGANDO;
+                            tiempo_inicio_partida = osKernelGetTickCount(); 
+                            Actualizar_LCD_Menu();
+                            
+                            nodo_b_dormido = false; 
+                            FibraA_SendFrame(0x30, modo_juego_actual, 0x00, 0x00);
+                        }
+                        Actualizar_LCD_Menu();
+                        break;
+                    case ESTADO_JUGANDO:
+                        if (mensajeJoyRX.gesto == IZQUIERDA) { 
+                            estado_actual = ESTADO_REPOSO;
+                            Actualizar_LCD_Menu();
+                        }
+                        break;
                 }
             }
         }
+
+        // 3. PING AL NODO B (Solo si NO está dormido)
+        if (!nodo_b_dormido) {
+            contador_ping++;
+            if (contador_ping >= 5) {
+                FibraA_SendFrame(0x10, 0x00, 0x00, 0x00); 
+                contador_ping = 0;
+            }
+        }
+
+        // 4. ESCUCHAR A LA FIBRA ÓPTICA
+        estado_fibra = osMessageQueueGet(colaFibraRX, &mensajeFibraRX, NULL, 100U); 
+        if (estado_fibra == osOK) {
+            if (mensajeFibraRX.tipo_comando == 0x50) {
+                uint8_t nivel = mensajeFibraRX.payload[1];
+                uint8_t puntos = mensajeFibraRX.payload[2];
+                char t_str[20], d_str[20];
+                int i, j, pos_insertar = -1;
+                MSGQUEUE_OBJ_LCD_t msg_lcd;
+                
+                snprintf(react_rx_trama, sizeof(react_rx_trama), "FIN: Niv %d | Pts %d", nivel, puntos);
+                RTC_ObtenerHoraFecha(t_str, d_str);
+                
+                for (i = 0; i < MAX_RECORDS; i++) {
+                    if (puntos >= tabla_records[i].puntuacion || tabla_records[i].puntuacion == 0) {
+                        pos_insertar = i; break;
+                    }
+                }
+                
+                if (pos_insertar != -1) {
+                    for (j = MAX_RECORDS - 1; j > pos_insertar; j--) {
+                        tabla_records[j] = tabla_records[j - 1];
+                    }
+                    strncpy(tabla_records[pos_insertar].nombre_jugador, react_nombre_jugador, 15);
+                    tabla_records[pos_insertar].nombre_jugador[15] = '\0';
+                    tabla_records[pos_insertar].nivel = nivel;
+                    tabla_records[pos_insertar].puntuacion = (uint32_t)puntos;
+                    snprintf(tabla_records[pos_insertar].fecha_hora, sizeof(tabla_records[pos_insertar].fecha_hora), "%s %s", d_str, t_str);
+                    EEPROM_GuardarRecords(tabla_records);
+                }
+                
+                estado_actual = ESTADO_REPOSO; 
+                memset(&msg_lcd, 0, sizeof(msg_lcd));
+                snprintf(msg_lcd.Lin1, sizeof(msg_lcd.Lin1), "FIN! Lvl:%d Pts:%d", nivel, puntos);
+                snprintf(msg_lcd.Lin2, sizeof(msg_lcd.Lin2), "   Pulse Centro   ");
+                osMessageQueuePut(mid_messageQueueLCD, &msg_lcd, 0, 0U);
+            }
+            else if (mensajeFibraRX.tipo_comando == 0x20) {
+                nodo_b_dormido = false; // Si responde al ping, es que está despierto
+                consumo_actual_mA = (mensajeFibraRX.payload[1] << 8) | mensajeFibraRX.payload[2];
+                snprintf(react_estado_sistema, sizeof(react_estado_sistema), 
+                        "<span style='color:green;'>Activo / %d mA</span>", consumo_actual_mA);
+            }
+            else if (mensajeFibraRX.tipo_comando == 0x41) {
+                nodo_b_dormido = true; // EL NODO B NOS CONFIRMA QUE SE HA DORMIDO
+                consumo_actual_mA = 2; 
+                snprintf(react_estado_sistema, sizeof(react_estado_sistema), 
+                        "<span style='color:orange;'>Modo Sleep / 2mA</span>");
+            }
+        } 
+        else if (estado_fibra == osErrorTimeout && contador_ping == 0 && !nodo_b_dormido) {
+            snprintf(react_rx_trama, sizeof(react_rx_trama), "[ Enlace Caido ]");
+            snprintf(react_estado_sistema, sizeof(react_estado_sistema), "<span style='color:red;'>Desconectado</span>");
+            consumo_actual_mA = 0; 
+        }
         
-        // Le pido al driver que vuelva a escuchar asíncronamente el siguiente byte
-        Driver_USART3.Receive(&rx_byte, 1);
+        if (estado_actual == ESTADO_REPOSO) {
+            tick_reloj++;
+            if (tick_reloj >= 10) { 
+                tick_reloj = 0; Actualizar_LCD_Menu(); 
+            }
+        } else if (estado_actual == ESTADO_JUGANDO) {
+            if ((osKernelGetTickCount() - tiempo_inicio_partida) > 6000U) {
+                estado_actual = ESTADO_REPOSO; Actualizar_LCD_Menu();
+            }
+        }
     }
-}
-
-/**
- * @brief Inicializa el periférico USART3, sus pines, el RTOS y protecciones eléctricas.
- */
-void FibraA_Init(void) {
-    // 1. Creo la cola del RTOS para conectar la interrupción con mi hilo principal
-    colaFibraRX = osMessageQueueNew(16, sizeof(TramaFibra_t), NULL);
-    
-    // 2. Inicializo el Driver CMSIS
-    Driver_USART3.Initialize(USART3_Callback);
-    Driver_USART3.PowerControl(ARM_POWER_FULL);
-    
-    // 3. Configuro a 9600 bps, 8 bits de datos, sin paridad y 1 bit de parada.
-    Driver_USART3.Control(ARM_USART_MODE_ASYNCHRONOUS |
-                          ARM_USART_DATA_BITS_8       |
-                          ARM_USART_PARITY_NONE       |
-                          ARM_USART_STOP_BITS_1       |
-                          ARM_USART_FLOW_CONTROL_NONE, 9600);
-
-    // 4. MI ESCUDO ANTI-TORMENTAS (Configuraciones de protección por Hardware)
-    // Fuerzo una resistencia Pull-Up en el pin de recepción (RX = PC11).
-    // Si la fibra óptica se desconecta, esto evita que el pin flote e introduzca interrupciones fantasma.
-    __HAL_RCC_GPIOC_CLK_ENABLE();
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-    GPIO_InitStruct.Pin = GPIO_PIN_11;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP; 
-    GPIO_InitStruct.Pull = GPIO_PULLUP; 
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-    GPIO_InitStruct.Alternate = GPIO_AF7_USART3;
-    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-    
-    // 5. Protección del Servidor Web (Modificación en el NVIC)
-    // Le bajo la prioridad a la interrupción de la USART3 al nivel mínimo (15).
-    // Así garantizo que el chip de red Ethernet LAN8742A siempre tenga prioridad de CPU.
-    HAL_NVIC_SetPriority(USART3_IRQn, 15, 0);
-
-    // 6. Arranco la máquina habilitando la transmisión y la primera recepción.
-    Driver_USART3.Control(ARM_USART_CONTROL_TX, 1);
-    Driver_USART3.Control(ARM_USART_CONTROL_RX, 1);
-    Driver_USART3.Receive(&rx_byte, 1);
-}
-
-/**
- * @brief Empaqueta y envía una trama de control hacia el Nodo B.
- */
-void FibraA_SendFrame(uint8_t tipo, uint8_t p1, uint8_t p2, uint8_t p3) {
-    // Declaro este buffer estático para que su dirección de memoria persista
-    // mientras la DMA o el driver envían los datos en segundo plano.
-    static uint8_t tx_buffer[FRAME_SIZE]; 
-    
-    tx_buffer[0] = SOF_BYTE;
-    tx_buffer[1] = tipo;
-    tx_buffer[2] = p1;
-    tx_buffer[3] = p2;
-    tx_buffer[4] = p3;
-    
-    // Genero mi Checksum usando la operación XOR, que es computacionalmente barata
-    tx_buffer[5] = tx_buffer[1] ^ tx_buffer[2] ^ tx_buffer[3] ^ tx_buffer[4];
-    
-    // Ordeno al driver que envíe los bytes sin bloquear mi código
-    Driver_USART3.Send(tx_buffer, FRAME_SIZE);
 }

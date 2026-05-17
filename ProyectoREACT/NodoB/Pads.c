@@ -1,15 +1,17 @@
 /**
  ******************************************************************************
  * @file    Pads.c
- * @author  Jose Vargas Gonzaga
- * @brief   Driver de pads piezo (mockup) - lectura por software polling con ADC3.
+ * @author  Jose Vargas Gonzaga (Adaptado a 4 Pads)
+ * @brief   Driver de 4 pads piezo (mockup) - lectura por software polling con ADC3.
  *
  * Estrategia:
- *  - ADC3 modo single-conversion, dos canales reconfigurados en cada lectura:
- *      Pad 0 -> ADC_CHANNEL_13 (PC3)
- *      Pad 1 -> ADC_CHANNEL_8  (PF10)
- *  - Llamar Pads_Poll() cada 2 ms minimo para no perderse picos breves del piezo.
- *  - Si raw > PADS_UMBRAL_GOLPE -> marca hay_golpe_flag con debounce temporal.
+ * - ADC3 modo single-conversion, 4 canales reconfigurados en cada lectura:
+ * Pad 0 -> ADC_CHANNEL_13 (PC3)
+ * Pad 1 -> ADC_CHANNEL_8  (PF10)
+ * Pad 2 -> ADC_CHANNEL_9  (PF3)
+ * Pad 3 -> ADC_CHANNEL_15 (PF5)
+ * - Llamar Pads_Poll() cada 2 ms minimo para no perderse picos breves del piezo.
+ * - Si raw > PADS_UMBRAL_GOLPE -> marca hay_golpe_flag con debounce temporal.
  ******************************************************************************
  */
 
@@ -48,14 +50,14 @@ void Pads_Init(void) {
     __HAL_RCC_GPIOF_CLK_ENABLE();
     __HAL_RCC_ADC3_CLK_ENABLE();
 
-    // 2. PC3 en modo analogico, sin pull
+    // 2. PC3 en modo analogico, sin pull (Pad 0)
     GPIO_InitStruct.Pin  = GPIO_PIN_3;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-    // 3. PF10 en modo analogico, sin pull
-    GPIO_InitStruct.Pin  = GPIO_PIN_10;
+    // 3. PF10 (Pad 1), PF3 (Pad 2), PF5 (Pad 3) en modo analogico
+    GPIO_InitStruct.Pin  = GPIO_PIN_10 | GPIO_PIN_3 | GPIO_PIN_5;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
@@ -83,8 +85,8 @@ void Pads_Init(void) {
 }
 
 void Pads_Poll(void) {
-    /* Tabla de canales por pad: idx 0 = PC3 (IN13), idx 1 = PF10 (IN8) */
-    uint32_t adc_channels[PADS_NUM_CANALES] = { ADC_CHANNEL_13, ADC_CHANNEL_8 };
+    /* Tabla de canales por pad: 0=PC3(IN13), 1=PF10(IN8), 2=PF3(IN9), 3=PF5(IN15) */
+    uint32_t adc_channels[PADS_NUM_CANALES] = { ADC_CHANNEL_13, ADC_CHANNEL_8, ADC_CHANNEL_9, ADC_CHANNEL_15 };
     uint32_t ahora = osKernelGetTickCount();
     uint8_t  i;
     uint16_t v;
