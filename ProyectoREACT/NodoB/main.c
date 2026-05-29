@@ -85,6 +85,21 @@ static void SystemClock_Config(void);
 static void Error_Handler(void);
 
 /* Private functions ---------------------------------------------------------*/
+
+/* ==================================================================== */
+/* REDIRECCIÓN DE PRINTF AL DEBUG VIEWER DE KEIL (ITM)                  */
+/* ==================================================================== */
+#include <stdio.h>
+
+struct __FILE { int handle; };
+FILE __stdout;
+FILE __stdin;
+
+int fputc(int ch, FILE *f) {
+    /* Envía el carácter por el puerto de traza ITM 0 */
+    return ITM_SendChar(ch);
+}
+/* ==================================================================== */
 /**
   * @brief  Main program
   * @param  None
@@ -117,12 +132,11 @@ int main(void)
 
   /* Create application main thread */
 
-	//osThreadNew(Hilo_Orquestador_CerebroB, NULL, NULL);
+  extern void Hilo_CerebroB(void *argument);
+  osThreadNew(Hilo_CerebroB, NULL, NULL);
 
 
-  extern void CerebroBTest_Start(void);
-   CerebroBTest_Start();
-	 
+
   /* Start thread execution */
   osKernelStart();
 #endif

@@ -21,9 +21,8 @@ extern char react_estado_sistema[60];
 extern char react_nombre_jugador[16]; 
 extern osMessageQueueId_t id_MsgQueue_Joystick;
 
-// === CORRECCIONES APLICADAS AQUI ===
-uint16_t consumo_actual_mA = 45;   // Inicializado a 45mA para la web
-uint8_t react_web_nav_trigger = 0; // Añadida la variable para el salto de la web
+uint16_t consumo_actual_mA = 45;   
+uint8_t react_web_nav_trigger = 0; 
 
 static bool nodo_b_dormido = false;
 
@@ -34,7 +33,7 @@ typedef enum {
 } EstadoMenu_t;
 
 static EstadoMenu_t estado_actual = ESTADO_REPOSO;
-uint8_t modo_juego_actual = 1; // IMPORTANTE: Le quitamos el "static" para que sea global
+uint8_t modo_juego_actual = 1; 
 
 #define NUM_MODOS 5
 const char* nombres_modos[NUM_MODOS] = {
@@ -44,8 +43,6 @@ const char* nombres_modos[NUM_MODOS] = {
     "Ritmo Const.", 
     "Discriminacion"
 };
-
-static uint32_t tiempo_inicio_partida = 0;
 
 void Actualizar_LCD_Menu() {
     MSGQUEUE_OBJ_LCD_t msg_lcd;
@@ -97,10 +94,8 @@ void Hilo_Orquestador_Cerebro(void *argument) {
             if (mensajeWebRX.tipo_comando == 1) { 
                 modo_juego_actual = mensajeWebRX.datos[0];
                 estado_actual = ESTADO_JUGANDO;
-                tiempo_inicio_partida = osKernelGetTickCount(); 
                 Actualizar_LCD_Menu();
                 
-                // Si estaba dormido, al mandar juego se despertará
                 nodo_b_dormido = false; 
                 FibraA_SendFrame(0x30, modo_juego_actual, 0x00, 0x00); 
             } 
@@ -126,10 +121,9 @@ void Hilo_Orquestador_Cerebro(void *argument) {
                         if (mensajeJoyRX.gesto == ABAJO) modo_juego_actual = (modo_juego_actual == 1) ? NUM_MODOS : (modo_juego_actual - 1);
                         if (mensajeJoyRX.gesto == CENTRO) {
                             estado_actual = ESTADO_JUGANDO;
-                            tiempo_inicio_partida = osKernelGetTickCount(); 
                             Actualizar_LCD_Menu();
                             
-                            react_web_nav_trigger = 1; // <--- Añadido: avisa a la web para cambiar pestaña
+                            react_web_nav_trigger = 1; 
                             nodo_b_dormido = false; 
                             FibraA_SendFrame(0x30, modo_juego_actual, 0x00, 0x00);
                         }
@@ -145,7 +139,7 @@ void Hilo_Orquestador_Cerebro(void *argument) {
             }
         }
 
-        // 3. PING AL NODO B (Solo si NO está dormido)
+        // 3. PING AL NODO B
         if (!nodo_b_dormido) {
             contador_ping++;
             if (contador_ping >= 5) {
@@ -158,50 +152,43 @@ void Hilo_Orquestador_Cerebro(void *argument) {
         estado_fibra = osMessageQueueGet(colaFibraRX, &mensajeFibraRX, NULL, 100U); 
         if (estado_fibra == osOK) {
 
-if (mensajeFibraRX.tipo_comando == 0x50) {
-    uint8_t nivel = mensajeFibraRX.payload[1];
-    uint8_t puntos = mensajeFibraRX.payload[2];
-    char t_str[20], d_str[20];
-    int i, j, pos_insertar = -1;
-    MSGQUEUE_OBJ_LCD_t msg_lcd;
-    
-    // 1. Actualizamos la trama para la web
-    snprintf(react_rx_trama, sizeof(react_rx_trama), "FIN: Niv %d | Pts %d", nivel, puntos);
-    RTC_ObtenerHoraFecha(t_str, d_str);
-    
-    // 2. Lógica Top 10 (Busca dónde insertar)
-    for (i = 0; i < MAX_RECORDS; i++) {
-        // Se inserta si tiene más puntos, o si el hueco está completamente vacío
-        if (puntos > tabla_records[i].puntuacion || 
-           (tabla_records[i].puntuacion == 0 && tabla_records[i].nivel == 0)) {
-            pos_insertar = i; 
-            break;
-        }
-    }
-    
-    // 3. Si merece estar en el Top 10, desplazamos hacia abajo y guardamos
-    if (pos_insertar != -1) {
-        // Desplazamos desde abajo hacia arriba para no pisar datos (el 10º se pierde)
-        for (j = MAX_RECORDS - 1; j > pos_insertar; j--) {
-            tabla_records[j] = tabla_records[j - 1];
-        }
-        // Insertamos el nuevo récord
-        strncpy(tabla_records[pos_insertar].nombre_jugador, react_nombre_jugador, 15);
-        tabla_records[pos_insertar].nombre_jugador[15] = '\0';
-        tabla_records[pos_insertar].nivel = nivel;
-        tabla_records[pos_insertar].puntuacion = (uint32_t)puntos;
-        snprintf(tabla_records[pos_insertar].fecha_hora, sizeof(tabla_records[pos_insertar].fecha_hora), "%s %s", d_str, t_str);
-        
-        EEPROM_GuardarRecords(tabla_records);
-    }
-    
-    // 4. Mostramos en LCD y terminamos partida
-    estado_actual = ESTADO_REPOSO; 
-    memset(&msg_lcd, 0, sizeof(msg_lcd));
-    snprintf(msg_lcd.Lin1, sizeof(msg_lcd.Lin1), "FIN! Lvl:%d Pts:%d", nivel, puntos);
-    snprintf(msg_lcd.Lin2, sizeof(msg_lcd.Lin2), "   Pulse Centro   ");
-    osMessageQueuePut(mid_messageQueueLCD, &msg_lcd, 0, 0U);
-}
+            if (mensajeFibraRX.tipo_comando == 0x50) {
+                uint8_t nivel = mensajeFibraRX.payload[1];
+                uint8_t puntos = mensajeFibraRX.payload[2];
+                char t_str[20], d_str[20];
+                int i, j, pos_insertar = -1;
+                MSGQUEUE_OBJ_LCD_t msg_lcd;
+                
+                snprintf(react_rx_trama, sizeof(react_rx_trama), "FIN: Niv %d | Pts %d", nivel, puntos);
+                RTC_ObtenerHoraFecha(t_str, d_str);
+                
+                for (i = 0; i < MAX_RECORDS; i++) {
+                    if (puntos > tabla_records[i].puntuacion || 
+                       (tabla_records[i].puntuacion == 0 && tabla_records[i].nivel == 0)) {
+                        pos_insertar = i; 
+                        break;
+                    }
+                }
+                
+                if (pos_insertar != -1) {
+                    for (j = MAX_RECORDS - 1; j > pos_insertar; j--) {
+                        tabla_records[j] = tabla_records[j - 1];
+                    }
+                    strncpy(tabla_records[pos_insertar].nombre_jugador, react_nombre_jugador, 15);
+                    tabla_records[pos_insertar].nombre_jugador[15] = '\0';
+                    tabla_records[pos_insertar].nivel = nivel;
+                    tabla_records[pos_insertar].puntuacion = (uint32_t)puntos;
+                    snprintf(tabla_records[pos_insertar].fecha_hora, sizeof(tabla_records[pos_insertar].fecha_hora), "%s %s", d_str, t_str);
+                    
+                    EEPROM_GuardarRecords(tabla_records);
+                }
+                
+                estado_actual = ESTADO_REPOSO; 
+                memset(&msg_lcd, 0, sizeof(msg_lcd));
+                snprintf(msg_lcd.Lin1, sizeof(msg_lcd.Lin1), "FIN! Lvl:%d Pts:%d", nivel, puntos);
+                snprintf(msg_lcd.Lin2, sizeof(msg_lcd.Lin2), "   Pulse Centro   ");
+                osMessageQueuePut(mid_messageQueueLCD, &msg_lcd, 0, 0U);
+            }
             else if (mensajeFibraRX.tipo_comando == 0x20) {
                 nodo_b_dormido = false;
                 consumo_actual_mA = (mensajeFibraRX.payload[1] << 8) | mensajeFibraRX.payload[2];
@@ -225,10 +212,6 @@ if (mensajeFibraRX.tipo_comando == 0x50) {
             tick_reloj++;
             if (tick_reloj >= 10) { 
                 tick_reloj = 0; Actualizar_LCD_Menu(); 
-            }
-        } else if (estado_actual == ESTADO_JUGANDO) {
-            if ((osKernelGetTickCount() - tiempo_inicio_partida) > 6000U) {
-                estado_actual = ESTADO_REPOSO; Actualizar_LCD_Menu();
             }
         }
     }

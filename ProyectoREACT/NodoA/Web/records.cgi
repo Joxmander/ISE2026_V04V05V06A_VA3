@@ -36,10 +36,10 @@ t <body>
 t <div class="wrap">
 t   <header class="topbar">
 t     <img src="logo.png" alt="REACT" class="logo">
-t     <a href="panel.cgi" class="btn-back">? VOLVER AL PANEL</a>
+t     <a href="panel.cgi" class="btn-back"> VOLVER AL PANEL</a>
 t   </header>
 t   <div class="card">
-t     <h2>?? Salon de la Fama (EEPROM)</h2>
+t     <h2> Salon de la Fama (EEPROM)</h2>
 t     <table>
 t       <thead><tr><th>ATLETA</th><th>NIVEL</th><th>PUNTOS</th><th>FECHA Y HORA</th></tr></thead>
 t       <tbody>

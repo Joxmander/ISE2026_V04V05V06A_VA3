@@ -505,7 +505,7 @@
 
 // <e> UART5 (Universal asynchronous receiver transmitter) [Driver_USART5]
 // <i> Configuration settings for Driver_USART5 in component ::CMSIS Driver:USART
-#define RTE_UART5                       0
+#define RTE_UART5                       1
 
 //   <o> UART5_TX Pin <0=>Not Used <1=>PC12 <2=>PB6 <3=>PB9 <4=>PB13
 #define RTE_UART5_TX_ID                 0

@@ -79,7 +79,7 @@ t }
 t .consumo-fill {
 t   height: 100%; width: 0%; border-radius: 8px;
 t   background: linear-gradient(90deg, #10b981 0%, #f59e0b 60%, #ef4444);
-t   transition: width 0.5s ease; 
+t   transition: width 0.5s ease;
 t }
 t .consumo-value { font-variant-numeric: tabular-nums;
 t                  font-weight: 700; color: #1e293b; }
@@ -154,7 +154,7 @@ t }
 t .modo-card.m2 { background: linear-gradient(135deg, #fff, #FFFBEB); }
 t .modo-card.m2 .num { color: #F59E0B; }
 t .modo-card.m2:hover, .modo-card.m2.selected { 
-t   border-color: #F59E0B; background: #FEF3C7; 
+t   border-color: #F59E0B; background: #FEF3C7;
 t }
 t .modo-card.m3 { background: linear-gradient(135deg, #fff, #FDF2F8); }
 t .modo-card.m3 .num { color: #DB2777; }
@@ -164,7 +164,7 @@ t }
 t .modo-card.m4 { background: linear-gradient(135deg, #fff, #F0FDFA); }
 t .modo-card.m4 .num { color: #0D9488; }
 t .modo-card.m4:hover, .modo-card.m4.selected { 
-t   border-color: #0D9488; background: #CCFBF1; 
+t   border-color: #0D9488; background: #CCFBF1;
 t }
 t .actions-grid {
 t   display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
@@ -288,7 +288,7 @@ t           </div>
 t         </div>
 t       </div>
 t       <button type="submit" class="btn btn-primary btn-block">
-t         INICIAR PARTIDA
+t         IR A INSTRUCCIONES
 t       </button>
 t     </form>
 t   </section>
@@ -304,7 +304,7 @@ t       <button class="btn btn-warning" onclick="confirmarSleep()">
 t         Forzar Bajo Consumo (Sleep)
 t       </button>
 t     </div>
-t     <div style="margin-top:14px;font-size:0.82em; 
+t     <div style="margin-top:14px;font-size:0.82em;
 t                 color:#64748b;text-align:center;">
 t       Tambien disponible: 
 t       <a href="time.cgi" style="color:#0D9488;text-decoration:none;">
@@ -333,20 +333,18 @@ t     e.preventDefault();
 t     var nombre = document.getElementById('nombreJugador').value;
 t     if (!nombre.trim()) nombre = 'Invitado';
 t     var modo = document.getElementById('modoSeleccionado').value;
-t     var data = new URLSearchParams();
-t     data.append('jugador', nombre);
-t     data.append('modo', modo);
-t     fetch('panel.cgi', { method: 'POST', body: data });
+t     
+t     // AQUI ESTA EL CAMBIO: Ya no hacemos POST a la placa.
+t     // Solo viajamos a la pantalla de juego/instrucciones.
 t     setTimeout(function() {
-t       var url = 'juego.cgi?modo=' + modo + '&nombre=' 
-t               + encodeURIComponent(nombre);
+t       var url = 'juego.cgi?modo=' + modo + '&nombre=' + encodeURIComponent(nombre);
 t       window.location.href = url;
 t     }, 200);
 t     return false;
 t   }
 t
 t   function confirmarSleep() {
-t     var msg = 'El Nodo B entrara en bajo consumo. ';
+t     var msg = 'El Nodo B entrara en bajo consumo.\n';
 t     msg += 'Solo podra ser despertado despues.\n\n Continuar?';
 t     if (!confirm(msg)) return;
 t     var data = new URLSearchParams();
@@ -392,8 +390,7 @@ t       if (cmd.indexOf('NAV:') === 0) {
 t         var m_juego = cmd.split(':')[1];
 t         var inp = document.getElementById('nombreJugador');
 t         var nj = (inp && inp.value.trim()) ? inp.value.trim() : 'Invitado';
-t         var dir = 'juego.cgi?modo=' + m_juego + '&nombre=' 
-t                 + encodeURIComponent(nj);
+t         var dir = 'juego.cgi?modo=' + m_juego + '&nombre=' + encodeURIComponent(nj);
 t         window.location.href = dir;
 t       }
 t     }).catch(function() {});

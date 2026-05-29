@@ -2,9 +2,6 @@
  ******************************************************************************
  * @file    HTTP_Server_CGI.c
  * @author  Jose Vargas Gonzaga
- * @brief   Módulo puente entre la Web y el Hardware (CGI).
- * Aquí se procesan los formularios enviados por el usuario y se
- * preparan los datos dinámicos (Hora, Voltaje, Estado REACT) para mostrar en web.
  ******************************************************************************
  */
 
@@ -24,41 +21,28 @@
 #pragma  clang diagnostic ignored "-Wformat-nonliteral"
 #endif
 
-// === VARIABLES GLOBALES PARA LA WEB REACT ===
 char react_rx_trama[30] = "[A la espera de Loopback]";
 char react_estado_sistema[60] = "<span style='color:green;'>Activo / 45mA</span>";
 char react_nombre_jugador[16] = "Invitado"; 
 
-// === VARIABLES EXTRACCION NODO B, EEPROM Y JOYSTICK ===
 extern uint16_t consumo_actual_mA;  
-extern RecordJuego_t tabla_records[MAX_RECORDS]; // Para el Top 10
-extern uint8_t react_web_nav_trigger;            // Para el salto web con joystick
-extern uint8_t modo_juego_actual;                // Modo seleccionado en la placa
+extern RecordJuego_t tabla_records[MAX_RECORDS]; 
+extern uint8_t react_web_nav_trigger;            
+extern uint8_t modo_juego_actual;                
 
-// ============================================
-// Variables externas
 extern uint16_t AD_in (uint32_t ch);
 extern bool LEDrun;
 extern char lcd_text[2][20+1];
 extern uint8_t  get_button (void);
 
-/* --- VARIABLES EXTERNAS DEL APARTADO 5 --- */
 extern uint8_t sntp_server_index;
 extern RTC_PeriodoAlarma_t periodo_seleccionado;
 extern uint8_t alarma_habilitada_web;
 extern const char* sntp_servers[];
 
-// Variables Locales.
 static uint8_t P2;      
 static uint8_t ip_addr[NET_ADDR_IP6_LEN];
 static char    ip_string[40];
-
-// My structure of CGI status variable.
-typedef struct {
-  uint8_t idx;
-  uint8_t unused[3];
-} MY_BUF;
-#define MYBUF(p)        ((MY_BUF *)p)
 
 void netCGI_ProcessQuery (const char *qstr) {
   netIF_Option opt = netIF_OptionMAC_Address;
@@ -140,13 +124,10 @@ void netCGI_ProcessData (uint8_t code, const char *data, uint32_t len) {
           msg_react.tipo_comando = 3; 
           if (colaEventosCerebro != NULL) osMessageQueuePut(colaEventosCerebro, &msg_react, 0, 0);
       }
-      
-      /* --- BORRADO DEL TOP 10 --- */
       else if (strcmp (var, "ctrl=wipe_records") == 0) {
           memset(tabla_records, 0, sizeof(RecordJuego_t) * MAX_RECORDS);
           EEPROM_GuardarRecords(tabla_records);
       }
-
       else if ((strncmp (var, "pw0=", 4) == 0) || (strncmp (var, "pw2=", 4) == 0)) {
         if (netHTTPs_LoginActive()) {
           if (passw[0] == 1) strcpy (passw, var+4);
@@ -168,6 +149,12 @@ void netCGI_ProcessData (uint8_t code, const char *data, uint32_t len) {
       else if (strncmp(var, "modo=", 5) == 0) {
           msg_react.origen = 0; msg_react.tipo_comando = 1;
           msg_react.datos[0] = (uint8_t)atoi(&var[5]);
+          
+          // ========================================================
+          // FIX WEB: LIMPIAMOS LA TRAMA ANTIGUA AL INICIAR PARTIDA
+          // ========================================================
+          strcpy(react_rx_trama, "[Partida en curso]");
+          
           if (colaEventosCerebro != NULL) osMessageQueuePut(colaEventosCerebro, &msg_react, 0, 0);
       }
       else if (strncmp(var, "trama_tx=", 9) == 0) {
@@ -206,7 +193,6 @@ uint32_t netCGI_Script (const char *env, char *buf, uint32_t buflen, uint32_t *p
       else if (id_val == '2') len = (uint32_t)sprintf(buf, "%s", react_rx_trama);
       else if (id_val == '3') len = (uint32_t)sprintf(buf, "%u", consumo_actual_mA);
       else if (id_val == '4') {
-          // Si el joystick lo pide, avisamos a la web para que navegue
           if (react_web_nav_trigger) {
               len = (uint32_t)sprintf(buf, "NAV:%d", modo_juego_actual);
               react_web_nav_trigger = 0; 
@@ -222,7 +208,6 @@ uint32_t netCGI_Script (const char *env, char *buf, uint32_t buflen, uint32_t *p
       else if (id_val == '2') len = (uint32_t)sprintf(buf, "%s", d_str);
       break;
 
-    // === EXTRACCION TOP 10 DESDE EEPROM ===
     case 'k':
     {
       uint8_t idx = 0;
@@ -270,9 +255,6 @@ uint32_t netCGI_Script (const char *env, char *buf, uint32_t buflen, uint32_t *p
       if (id > 7) id = 0;
       id = (uint8_t)(1U << id);
       len = (uint32_t)sprintf (buf, &env[4], (P2 & id) ? "checked" : "");
-      break;
-
-    case 'c': 
       break;
 
     case 'd': 

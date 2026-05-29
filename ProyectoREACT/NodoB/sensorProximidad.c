@@ -37,6 +37,7 @@ void Hilo_SensorProximidad(void *argument);
 // Variables globales volatiles (se actualizan en este hilo, se leen desde CerebroB)
 volatile uint16_t distancia_actual_mm = 8190;
 volatile uint8_t  mano_en_neutro = 0;
+volatile uint8_t  tof_disponible = 1U;   /* 1 = sensor OK, 0 = init fallo -> juegos sin gate */
 
 /**
  * @brief Getter thread-safe para obtener la ultima distancia leida.
@@ -47,8 +48,12 @@ uint16_t ToF_GetDistancia(void) {
 
 /**
  * @brief Funcion para que el CerebroB sepa si el jugador ha vuelto al inicio.
+ *        BYPASS: si el sensor no se pudo inicializar (cable suelto, modulo
+ *        roto, etc.) devuelve 1 para que la FSM no se quede esperando la
+ *        mano. Asi los juegos pueden seguir probandose mientras se depura.
  */
 uint8_t ToF_ManoEnPosicionNeutra(void) {
+    if (!tof_disponible) return 1U;
     return mano_en_neutro;
 }
 
@@ -118,15 +123,31 @@ void Hilo_SensorProximidad(void *argument) {
            (int)status, (unsigned)registro_id);
 
     if (status != HAL_OK || registro_id != 0xEE) {
-        // Si entra aqui, parpadeamos el LED PB7 de la Nucleo (LD2 azul)
-        // como senal visual de fallo del bus I2C / sensor no responde
+        /* === MODO BYPASS (sensor no responde a I2C) ===
+         * Marcamos el sensor como NO disponible. ToF_ManoEnPosicionNeutra()
+         * devolvera 1 siempre, asi la FSM no se atasca esperando la mano y
+         * los juegos pueden correr mientras se depura el problema fisico.
+         * Senal visual: PB7 parpadea 5 segundos, luego se apaga y este hilo
+         * termina limpiamente (no consume mas CPU).
+         */
+        tof_disponible = 0U;
+        printf("[ToF] FALLO I2C (status=%d ID=0x%02X). BYPASS activado.\r\n",
+               (int)status, (unsigned)registro_id);
+        printf("[ToF] Los juegos correran SIN gate ToF. Cuando arregles el\r\n");
+        printf("      cableado (PB8/PB9/3V3/GND) el sensor vuelve solo.\r\n");
+
         __HAL_RCC_GPIOB_CLK_ENABLE();
-        GPIO_InitTypeDef LED_InitStruct = { .Pin = GPIO_PIN_7, .Mode = GPIO_MODE_OUTPUT_PP };
-        HAL_GPIO_Init(GPIOB, &LED_InitStruct);
-        while (1) {
-            HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
-            osDelay(250U);
+        {
+            GPIO_InitTypeDef LED_InitStruct = { .Pin = GPIO_PIN_7, .Mode = GPIO_MODE_OUTPUT_PP };
+            uint8_t k;
+            HAL_GPIO_Init(GPIOB, &LED_InitStruct);
+            for (k = 0U; k < 20U; k++) {       /* 20 toggles * 250 ms = 5 s */
+                HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
+                osDelay(250U);
+            }
+            HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_RESET);
         }
+        osThreadExit();   /* termina el hilo, libera CPU para el resto */
     }
 
     printf("[ToF] >> ID OK. Ejecutando secuencia de arranque magica...\r\n");
@@ -203,15 +224,21 @@ void Hilo_SensorProximidad(void *argument) {
             ToF_WriteReg(REG_SYSTEM_INTERRUPT_CLEAR, 0x01);
         }
 
-        // >>> DIAG TMP: cada ~50 iteraciones (~600ms) imprime el estado del sensor
-        diag_cnt++;
-        if (diag_cnt >= 50U) {
-            diag_cnt = 0U;
-            printf("[ToF DIAG] status_reg=0x%02X timeout=%u raw=%u filt=%u\r\n",
-                   (unsigned)status_reg, (unsigned)timeout,
-                   (unsigned)ultima_raw, (unsigned)distancia_actual_mm);
-        }
+        /* DIAG eliminado completamente: estaba saturando el SWO y causando el
+         * "Trace data overflow" que veias en Keil. Si necesitas reactivarlo
+         * para depurar el ToF, descomenta el bloque de abajo:
+         *
+         * diag_cnt++;
+         * if (diag_cnt >= 200U) {
+         *     diag_cnt = 0U;
+         *     printf("[ToF] dist=%u mm  neutro=%u\r\n",
+         *            (unsigned)distancia_actual_mm, (unsigned)mano_en_neutro);
+         * }
+         */
+        (void)ultima_raw;
+        (void)diag_cnt;
 
         osDelay(10U);
     }
 }
+

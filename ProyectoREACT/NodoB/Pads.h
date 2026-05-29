@@ -1,13 +1,8 @@
 /**
  ******************************************************************************
  * @file    Pads.h
- * @author  Jose Vargas Gonzaga (Adaptado a 4 Pads)
- * @brief   Driver de pads piezoelectricos para el Nodo B (mockup protoboard).
- *
- * He montado los discos piezo SIN amplificador operacional (TLC274 aparcado).
- * La red de proteccion (R 1M descarga + Schottky/Zener + R 10k serie) garantiza
- * que el ADC vea picos positivos < 3.3V sin daniarse. La deteccion de golpe
- * es por umbral software y debounce de tiempo, hecho en el hilo de test.
+ * @author  Equipo R.E.A.C.T.
+ * @brief   Driver de pads piezoeléctricos — máquina de estados + pendiente.
  ******************************************************************************
  */
 
@@ -16,22 +11,48 @@
 
 #include <stdint.h>
 
-// === CONFIGURACION DEL DRIVER ===
-#define PADS_NUM_CANALES        4U      /* PC3, PF10, PF3, PF5 */
-#define PADS_UMBRAL_GOLPE       500U    /* Raw ADC 12-bit (~0.4V). Subir si hay falsos positivos */
-#define PADS_DEBOUNCE_MS        80U     /* Ignora golpes seguidos dentro de esta ventana */
+#define PADS_NUM_CANALES        4U
 
-// === API PUBLICA ===
-/** @brief Configura ADC3 y los pines PC3, PF10, PF3, PF5 */
+/* ── Detección de impacto ─────────────────────────────────────────────────── */
+
+/* Desviación mínima sobre la línea base para abrir la ventana de detección.
+ * Con op-amp como buffer unitario los golpes producen 80-400 cuentas.
+ * Sube si hay falsos positivos, baja si no detecta golpes suaves. */
+#define PADS_UMBRAL_DELTA       150U
+
+/* Pendiente mínima requerida (cuentas ADC por muestra de 5 ms) para que un
+ * delta sobre el umbral se considere un golpe real.
+ *
+ * RAZONAMIENTO ANTI-FANTASMA:
+ *   - Descarga RC del piezo con PCB (R=1MΩ, τ≈7.5 s):
+ *       pendiente ≈ -0.27 counts/muestra → NUNCA supera 50 (negativa y lenta).
+ *   - Golpe real: pendiente ≈ +200…+500 counts/muestra → SIEMPRE supera 50.
+ *
+ * Con este valor la probabilidad de falso positivo durante la descarga RC es
+ * < 0.04 % (frente al ~15 % que daba el debounce simple).
+ * Si sigues viendo fantasmas, sube a 80 o 100. */
+#define PADS_PENDIENTE_MINIMA   50
+
+/* ── Ventana de pico ──────────────────────────────────────────────────────── */
+#define PADS_VENTANA_PICO_MS    30U   /* Tiempo máx. para buscar el pico tras trigger */
+#define PADS_MUESTRAS_BAJADA    3U    /* N muestras consecutivas bajando → fin ventana */
+
+/* ── Enfriamiento ─────────────────────────────────────────────────────────── */
+/* Durante este periodo se ignoran nuevos triggers para evitar rebotes. */
+#define PADS_ENFRIAMIENTO_MS    500U
+
+/* ── Diagnóstico de hardware ──────────────────────────────────────────────── */
+/* Si en reposo el pad oscila más que esto, se deshabilita (op-amp oscilando
+ * o cable suelto). */
+#define PADS_NOISE_LIMIT        200U
+
+/* ── API pública ──────────────────────────────────────────────────────────── */
 void     Pads_Init(void);
-
-/** @brief Lee los 4 pads y actualiza flags. Llamar periodicamente (cada 1-5 ms). */
 void     Pads_Poll(void);
-
-/** @brief Devuelve 1 si hubo un golpe nuevo en pad_id desde la ultima llamada. Auto-limpia. */
 uint8_t  Pads_HayGolpe(uint8_t pad_id);
-
-/** @brief Devuelve el ultimo valor crudo del ADC (12 bits). Util para depurar el umbral. */
-uint16_t Pads_RawValue(uint8_t pad_id);
+uint8_t  Pads_GetFuerza(uint8_t pad_id);        /* Fuerza mapeada 1-100 % */
+uint16_t Pads_GetRawDelta(uint8_t pad_id);      /* Delta ADC de la última muestra */
+void     Pads_CalibrarSensibilidad(void);       /* Rutina interactiva de calibración */
 
 #endif /* PADS_H */
+

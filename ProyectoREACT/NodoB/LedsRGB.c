@@ -292,3 +292,4 @@ void DMA1_Stream0_IRQHandler(void) { HAL_DMA_IRQHandler(&hdma_ws_ch0); }
 void DMA1_Stream3_IRQHandler(void) { HAL_DMA_IRQHandler(&hdma_ws_ch1); }
 void DMA1_Stream4_IRQHandler(void) { HAL_DMA_IRQHandler(&hdma_ws_ch2); }
 void DMA1_Stream5_IRQHandler(void) { HAL_DMA_IRQHandler(&hdma_ws_ch3); }
+

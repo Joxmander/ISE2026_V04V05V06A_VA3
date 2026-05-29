@@ -19,7 +19,7 @@ t }
 t .wrap { max-width: 920px; margin: 0 auto; }
 t .hero {
 t   background: linear-gradient(135deg, var(--c1), var(--c2));
-t   border-radius: 20px; padding: 32px; margin-bottom: 24px; 
+t   border-radius: 20px; padding: 32px; margin-bottom: 24px;
 t   text-align: center; position: relative; overflow: hidden;
 t }
 t .hero img {
@@ -102,6 +102,13 @@ t   display: inline-block; margin-top: 22px; padding: 12px 28px;
 t   background: rgba(255,255,255,0.1); color: #fff; border-radius: 9px;
 t   text-decoration: none; border: 1px solid rgba(255,255,255,0.2);
 t }
+t #btnEmpezarJuego {
+t   display: block; width: 100%; margin-top: 24px;
+t   padding: 16px; background: #F4C842; color: #1A3942;
+t   font-size: 1.1em; font-weight: bold; border: none;
+t   border-radius: 12px; cursor: pointer;
+t   box-shadow: 0 4px 12px rgba(244,200,66,0.3);
+t }
 t </style>
 t </head>
 t <body data-modo="1">
@@ -113,7 +120,7 @@ t     <div class="num" id="numModo">MODO -</div>
 t     <h1 id="nombreModo">Cargando...</h1>
 t     <div class="subtit" id="subtitModo"></div>
 t     <div class="jugador">Atleta: <strong id="nombreJugador">-</strong></div>
-t     <div class="indicador" id="indicadorEstado">Esperando trama</div>
+t     <div class="indicador" id="indicadorEstado">Lee las instrucciones...</div>
 t   </section>
 t
 t   <section class="card" id="cardObjetivo">
@@ -125,6 +132,9 @@ t   <section class="card" id="cardReglas">
 t     <h2><span class="badge-tag">INSTRUCCIONES</span></h2>
 t     <ol class="pasos" id="reglasLista"></ol>
 t     <div class="consejo" id="textoConsejo"></div>
+t     <button id="btnEmpezarJuego" onclick="arrancarHardware()">
+t       EMPEZAR AHORA
+t     </button>
 t   </section>
 t
 t   <section class="card" id="cardEstado">
@@ -152,18 +162,15 @@ t     <div class="puntos" id="puntosFinales"></div>
 t     <div id="feedbackCognitivo"></div>
 t     <a href="panel.cgi" class="volver">Volver al Panel</a>
 t   </section>
-t
 t </div>
 t
 t <script>
 t var MODOS = {};
-t
 t MODOS[1] = {
 t   nombre: 'Memoria de Trabajo',
 t   subtit: 'Simon Says cognitivo',
 t   icon: 'icon_mem.png',
-t   obj: 'Entrenar tu memoria operativa repitiendo secuencias ' +
-t        'crecientes de estimulos visuales.',
+t   obj: 'Entrenar tu memoria operativa repitiendo secuencias.',
 t   pasos: [
 t     'Coloca la mano frente al sensor y mantenla quieta.',
 t     'Observa la secuencia en los 4 pads.',
@@ -171,8 +178,7 @@ t     'Cuando parpadeen en azul, reproduce la secuencia.',
 t     'Tienes 3 segundos entre golpe y golpe.',
 t     'Tres niveles consecutivos: 4, 5 y 5 pasos.'
 t   ],
-t   consejo: 'Verbaliza mentalmente los pads. ' +
-t            'La doble codificacion ayuda mucho.',
+t   consejo: 'Verbaliza mentalmente los pads. Ayuda mucho.',
 t   labelB: 'Aciertos',
 t   labelC: 'Fallos'
 t };
@@ -181,8 +187,7 @@ t MODOS[2] = {
 t   nombre: 'Control de Fuerza',
 t   subtit: 'Calibracion psicomotora',
 t   icon: 'icon_fza.png',
-t   obj: 'Calibrar tu sensibilidad propioceptiva golpeando con ' +
-t        'una fuerza concreta.',
+t   obj: 'Calibrar tu sensibilidad golpeando con fuerza exacta.',
 t   pasos: [
 t     'Coloca la mano frente al sensor para iniciar.',
 t     'Un pad parpadeara en azul indicando el objetivo.',
@@ -190,8 +195,7 @@ t     'Golpea el pad iluminado con la fuerza objetivo.',
 t     'Si tu fuerza queda dentro del margen, el pad es verde.',
 t     'La partida son 3 rondas. Busca la maxima precision.'
 t   ],
-t   consejo: 'Simula el movimiento en el aire para anticipar. ' +
-t            'Reduce el error motor.',
+t   consejo: 'Simula el movimiento en el aire para anticipar.',
 t   labelB: 'Aciertos',
 t   labelC: 'F.Media'
 t };
@@ -200,8 +204,7 @@ t MODOS[3] = {
 t   nombre: 'Inhibicion + Discriminacion',
 t   subtit: 'Atencion ejecutiva sostenida',
 t   icon: 'icon_inh.png',
-t   obj: 'Evaluar tu capacidad para inhibir respuestas a ' +
-t        'estimulos distractores.',
+t   obj: 'Evaluar tu capacidad para inhibir respuestas.',
 t   pasos: [
 t     'Cada estimulo es una combinacion de color y sonido.',
 t     'Golpea el pad iluminado SOLO si NO es rojo y ES agudo.',
@@ -263,6 +266,21 @@ t   ul.appendChild(li);
 t }
 t
 t var partidaTerminada = false;
+t var juegoArrancadoEnHardware = false;
+t
+t function arrancarHardware() {
+t   document.getElementById('btnEmpezarJuego').style.display = 'none';
+t   var ind = document.getElementById('indicadorEstado');
+t   ind.textContent = 'Hardware LISTO. Pon mano sobre ToF...';
+t   
+t   var data = new URLSearchParams();
+t   data.append('jugador', nombre);
+t   data.append('modo', modoId);
+t
+t   fetch('panel.cgi', { method: 'POST', body: data }).then(function() {
+t      juegoArrancadoEnHardware = true;
+t   });
+t }
 t
 t function mostrarResultado(modo, nivelAlcanzado, codigo) {
 t   var r = document.getElementById('cardResultado');
@@ -275,13 +293,10 @@ t   var v;
 t   if (modo == 3) { v = (nivelAlcanzado >= 3 && codigo < 3); }
 t   else { v = (codigo == 0); }
 t   r.classList.toggle('fallo', !v);
-t
 t   document.getElementById('tituloResultado').textContent = 
 t           v ? '!Victoria!' : 'Partida terminada';
-t
 t   var p = (modo == 3) ? ((3 - codigo) + ' / 3') : ('Nivel ' + nivelAlcanzado);
 t   document.getElementById('puntosFinales').textContent = p;
-t   
 t   var fb = feedbackCognitivo(modo, v, nivelAlcanzado, codigo);
 t   document.getElementById('feedbackCognitivo').textContent = fb;
 t   document.getElementById('indicadorEstado').textContent = 'Fin';
@@ -294,7 +309,7 @@ t   if (m) mostrarResultado(modoId, parseInt(m[1]), parseInt(m[2]));
 t }
 t
 t setInterval(function() {
-t   if (partidaTerminada) return;
+t   if (partidaTerminada || !juegoArrancadoEnHardware) return;
 t   fetch('panel.cgi').then(function(r) { return r.text(); })
 t   .then(function(html) {
 t     var dom = new DOMParser().parseFromString(html, 'text/html');
