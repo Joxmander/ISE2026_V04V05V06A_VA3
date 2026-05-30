@@ -1,8 +1,12 @@
 /**
  ******************************************************************************
  * @file    LedsRGB.h
- * @author  Jose Vargas Gonzaga (Adaptado a 4 Anillos)
- * @brief   Driver WS2812B usando TIM4_CH1/CH2 y TIM3_CH1/CH2 + DMAs en STM32.
+ * @author  Jose Vargas Gonzaga
+ * @brief   Driver para controlar anillos de LEDs WS2812B en STM32.
+ * * He diseñado esta arquitectura utilizando 4 canales PWM independientes 
+ * en lugar de conectarlos todos en serie. De esta forma, evito caídas de 
+ * tensión al final de la cadena, mantengo el blanco puro y consigo 
+ * actualizar los 64 LEDs de forma simultánea.
  ******************************************************************************
  */
 
@@ -11,32 +15,18 @@
 
 #include <stdint.h>
 
-// === CONFIGURACION (AJUSTAR TRAS EL SCAN INICIAL) ===
-#define WS2812_LEDS_POR_ANILLO     16U   /* Cuenta fisica real */
-#define WS2812_NUM_ANILLOS         4U    /* 4 anillos independientes */
-#define WS2812_LEDS_TOTAL          (WS2812_LEDS_POR_ANILLO * WS2812_NUM_ANILLOS)
-#define WS2812_MAX_BRIGHTNESS      80U   /* 0-255. Limita corriente por USB */
+/* --- Configuración de la Geometría --- */
+#define WS2812_LEDS_POR_ANILLO     16U   /* Cantidad física de LEDs por anillo */
+#define WS2812_NUM_ANILLOS         4U    /* Uso 4 conectores independientes en mi PCB */
 
-// === API PUBLICA ===
-/** @brief Configura Timers + DMA + GPIOs (PB6, PD13, PC6, PC7). */
+/* Limito el brillo máximo (0-255) por seguridad. Así evito picos de consumo 
+ * extremos que puedan colgar la fuente de alimentación o el USB de la Nucleo. */
+#define WS2812_MAX_BRIGHTNESS      80U   
+
 void LedsRGB_Init(void);
-
-/** @brief Borra el buffer interno (todos los LEDs a negro). NO empuja al hardware. */
 void LedsRGB_Clear(void);
-
-/** @brief Escribe un color en un LED concreto del buffer interno. Aplica MAX_BRIGHTNESS. */
-void LedsRGB_SetPixel(uint8_t anillo_id, uint16_t idx, uint8_t r, uint8_t g, uint8_t b);
-
-/** @brief Rellena un anillo entero con un color uniforme. */
 void LedsRGB_FillAnillo(uint8_t anillo_id, uint8_t r, uint8_t g, uint8_t b);
-
-/** @brief Empuja el buffer interno al hardware via DMA. */
 void LedsRGB_Show(void);
-
-/** @brief Enciende todos los anillos de un color (Util para tests). */
-void LedsRGB_TestAllSolid(uint8_t r, uint8_t g, uint8_t b);
-
-/** @brief Modo TEST: enciende LED por LED en blanco con 200ms entre LEDs. */
-void LedsRGB_Scan(void);
+void LedsRGB_Arcoiris(uint8_t anillo_id, uint8_t vueltas);
 
 #endif /* LEDS_RGB_H */
