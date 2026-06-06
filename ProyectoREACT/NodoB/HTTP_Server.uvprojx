@@ -413,6 +413,11 @@
               <FileType>1</FileType>
               <FilePath>.\testCerebroB.c</FilePath>
             </File>
+            <File>
+              <FileName>testCerebroB.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\testCerebroB.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

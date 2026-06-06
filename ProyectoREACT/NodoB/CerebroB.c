@@ -36,6 +36,12 @@
 #include "LedsRGB.h"
 #include "comFibraB.h"
 #include "fsm_modos.h"
+#include "testCerebroB.h"
+
+/* -- Modo de operación ----------------------------------------------------- */
+/* 1 = ejecutar suite de test al arranque (LEDs + Pads) y luego producción   */
+/* 0 = arrancar directamente en modo producción (con Nodo A)                 */
+#define MODO_TEST   1U
 
 /* -- Cola de fibra (definida en comFibraB.c) ------------------------------ */
 /* TramaFibra_t ya viene declarada desde comFibraB.h (incluido por fsm_modos.h) */
@@ -107,7 +113,14 @@ void Hilo_CerebroB(void *argument)
     LedsRGB_Clear();
     LedsRGB_Show();
 
-    printf("[NODO B] Sistema listo. Esperando Nodo A...\r\n");
+    printf("[NODO B] Sistema listo.\r\n");
+
+    /* -- Suite de test de hardware (opcional) ------------------------------ */
+#if MODO_TEST
+    TestNodoB_Ejecutar();
+#endif
+
+    printf("[NODO B] Entrando en modo produccion. Esperando Nodo A...\r\n");
 
     /* -- Bucle principal (5 ms) --------------------------------------------- */
     uint32_t tick_espera = osKernelGetTickCount();
@@ -175,4 +188,5 @@ void Hilo_CerebroB(void *argument)
         tick_espera += 5U;
         osDelayUntil(tick_espera);
     }
-}
+
+	}
