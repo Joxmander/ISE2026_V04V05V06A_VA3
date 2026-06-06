@@ -3,18 +3,13 @@
  * @file    Pads.c
  * @author  Jose Vargas Gonzaga
  * @brief   Detección robusta de impactos en sensores piezoeléctricos.
- * * He implementado una máquina de estados simplificada:
- * 1. REPOSO: Ajusto la línea base dinámicamente para compensar deriva térmica.
- * 2. SPRINT (Pico): Al superar el umbral, congelo el hilo 4ms leyendo a máxima 
- * velocidad para "cazar" el voltaje máximo del golpe, que a menudo se 
- * perdía en el retardo de 5ms del RTOS.
- * 3. ENFRIAMIENTO: Ignoro la caída natural de la tensión.
  ******************************************************************************
  */
 
 #include "Pads.h"
 #include "stm32f4xx_hal.h"
 #include "cmsis_os2.h"
+#include "LedsRGB.h" // AÑADIDO PARA LA CALIBRACIÓN VISUAL
 #include <stdio.h>
 
 typedef enum {
@@ -25,7 +20,7 @@ typedef enum {
 typedef struct {
     EstadoPad_t estado;
     uint32_t    tick_fin_enfriamiento;  
-    int32_t     delta_anterior;         /* Usado para medir la velocidad de subida (Pendiente) */
+    int32_t     delta_anterior;         
     uint16_t    max_delta_sesion;       
 } MaquinaPad_t;
 
@@ -39,22 +34,37 @@ static uint8_t      pad_habilitado[PADS_NUM_CANALES] = {1U, 1U, 1U, 1U};
 static uint16_t     rango_max_fuerza[PADS_NUM_CANALES] = {1500U, 1500U, 1500U, 1500U};
 static MaquinaPad_t maquina[PADS_NUM_CANALES];
 
+/* Enrutamiento Físico Actualizado */
 static const uint32_t canales_adc[PADS_NUM_CANALES] = {
-    ADC_CHANNEL_13, ADC_CHANNEL_8, ADC_CHANNEL_9, ADC_CHANNEL_15 
+    ADC_CHANNEL_13, /* Set 1 -> J3 (PC3)  */
+    ADC_CHANNEL_8,  /* Set 2 -> J4 (PF10) */
+    ADC_CHANNEL_9,  /* Set 3 -> J5 (PF3)  */
+    ADC_CHANNEL_15  /* Set 4 -> J6 (PF5)  */
 };
 
-/* Función auxiliar para leer mi ADC de forma manual y síncrona */
 static uint16_t Pads_LeerCanal(uint32_t adc_channel) {
     ADC_ChannelConfTypeDef sConfig = {0};
+
+    HAL_ADC_Stop(&hadc_pads);
     sConfig.Channel      = adc_channel;
     sConfig.Rank         = 1;
     sConfig.SamplingTime = ADC_SAMPLETIME_144CYCLES;
     HAL_ADC_ConfigChannel(&hadc_pads, &sConfig);
 
     HAL_ADC_Start(&hadc_pads);
-    if (HAL_ADC_PollForConversion(&hadc_pads, 2U) == HAL_OK) {
-        return (uint16_t)HAL_ADC_GetValue(&hadc_pads);
+    if (HAL_ADC_PollForConversion(&hadc_pads, 1U) == HAL_OK) {
+        HAL_ADC_GetValue(&hadc_pads); 
     }
+    HAL_ADC_Stop(&hadc_pads);
+
+    HAL_ADC_Start(&hadc_pads);
+    if (HAL_ADC_PollForConversion(&hadc_pads, 2U) == HAL_OK) {
+        uint16_t val = (uint16_t)HAL_ADC_GetValue(&hadc_pads);
+        HAL_ADC_Stop(&hadc_pads); 
+        return val;
+    }
+    
+    HAL_ADC_Stop(&hadc_pads);
     return 0U;
 }
 
@@ -73,7 +83,6 @@ void Pads_Init(void) {
     GPIO_InitStruct.Pin  = GPIO_PIN_10 | GPIO_PIN_3 | GPIO_PIN_5;
     HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 
-    // Configuro el hardware ADC
     hadc_pads.Instance                   = ADC3;
     hadc_pads.Init.ClockPrescaler        = ADC_CLOCK_SYNC_PCLK_DIV4;
     hadc_pads.Init.Resolution            = ADC_RESOLUTION_12B;
@@ -87,9 +96,7 @@ void Pads_Init(void) {
     hadc_pads.Init.EOCSelection          = ADC_EOC_SINGLE_CONV;
     HAL_ADC_Init(&hadc_pads);
 
-    /* Espero 3 segundos para que los condensadores RC se descarguen a 0V 
-     * antes de tomar mis medidas de línea base. */
-    printf("[PADS] Descargando piezo (3s)...\r\n");
+    printf("[PADS] Descargando piezos (3s)...\r\n");
     osDelay(3000U);
 
     printf("[PADS] Calibrando baseline de reposo...\r\n");
@@ -97,14 +104,12 @@ void Pads_Init(void) {
         uint32_t suma    = 0U;
         uint16_t max_ruido = 0U;
 
-        /* Promedio la línea base en reposo */
         for (uint8_t j = 0U; j < 50U; j++) {
             suma += Pads_LeerCanal(canales_adc[i]);
             osDelay(2U);
         }
         linea_base[i] = (uint16_t)(suma / 50U);
 
-        /* Mido la dispersión (ruido) máxima para ver si el canal es seguro */
         for (uint8_t j = 0U; j < 50U; j++) {
             uint16_t v  = Pads_LeerCanal(canales_adc[i]);
             int32_t  d  = (int32_t)v - (int32_t)linea_base[i];
@@ -122,17 +127,13 @@ void Pads_Init(void) {
         fuerza_porcentaje[i] = 0U;
         ultimo_delta[i]      = 0U;
 
-        /* Deshabilito el canal si hay demasiado ruido fantasma */
         if (max_ruido > PADS_NOISE_LIMIT) {
             pad_habilitado[i] = 0U;
-            printf(" -> Pad %d  BASELINE=%-4u  RUIDO=%-4u  *** DESHABILITADO ***\r\n", i, linea_base[i], max_ruido);
+            printf(" -> Set %d  BASELINE=%-4u  RUIDO=%-4u  *** DESHABILITADO ***\r\n", i+1, linea_base[i], max_ruido);
         } else {
             pad_habilitado[i] = 1U;
-            printf(" -> Pad %d  BASELINE=%-4u  RUIDO=%-4u  OK\r\n", i, linea_base[i], max_ruido);
+            printf(" -> Set %d  BASELINE=%-4u  RUIDO=%-4u  OK\r\n", i+1, linea_base[i], max_ruido);
         }
-
-        /* Fuerza-deshabilitar pads no conectados en el banco de pruebas actual */
-        if (i != 0U) pad_habilitado[i] = 0U;
     }
 }
 
@@ -156,20 +157,12 @@ void Pads_Poll(void) {
         MaquinaPad_t *p = &maquina[i];
 
         switch (p->estado) {
-
         case PAD_ESTADO_REPOSO:
-            /* Realizo un filtrado EMA (Media Móvil Exponencial) muy lento para
-             * auto-corregir el cero si la temperatura del ambiente cambia. */
             if (delta < (int32_t)(PADS_UMBRAL_DELTA / 4U)) {
                 linea_base[i] = (uint16_t)(((uint32_t)linea_base[i] * 255U + v_raw) >> 8U);
             }
 
-            /* ¿El impacto rompe mi umbral y además sube muy rápido? ¡Es un golpe real! */
             if ((delta >= (int32_t)PADS_UMBRAL_DELTA) && (deriv >= (int32_t)PADS_PENDIENTE_MINIMA)) {
-                
-                /* SPRINT DE CAZA (Peak Hunting): Bloqueo el hilo durante 4ms y 
-                 * leo a la máxima velocidad que da el hardware para asegurarme 
-                 * de capturar la punta matemática exacta del voltaje del piezo. */
                 uint16_t pico_maximo = (uint16_t)delta;
                 uint32_t inicio_sprint = HAL_GetTick(); 
                 
@@ -180,10 +173,6 @@ void Pads_Poll(void) {
                     if (d_fast > pico_maximo) pico_maximo = (uint16_t)d_fast;
                 }
 
-                /* Como la fuerza muscular humana y la compresión de la goma EVA
-                 * no son lineales, aplico una curva exponencial cúbica (ratio^3). 
-                 * Esto expande mi rango dinámico y me permite distinguir bien entre
-                 * golpes suaves y fuertes en el código principal. */
                 float ratio = (float)pico_maximo / (float)rango_max_fuerza[i];
                 if (ratio > 1.0f) ratio = 1.0f; 
 
@@ -194,9 +183,6 @@ void Pads_Poll(void) {
                 fuerza_porcentaje[i] = (uint8_t)pct;
                 hay_golpe_flag[i]    = 1U;
 
-                printf("[PADS] Golpe pad %d  pico_real=%u  fuerza=%u%%\r\n", i, pico_maximo, (unsigned)pct);
-
-                /* Armo el cooldown para evitar rebotes físicos de la membrana */
                 p->estado                = PAD_ESTADO_ENFRIAMIENTO;
                 p->tick_fin_enfriamiento = ahora + PADS_ENFRIAMIENTO_MS;
                 p->delta_anterior        = 0;
@@ -204,12 +190,11 @@ void Pads_Poll(void) {
             break;
 
         case PAD_ESTADO_ENFRIAMIENTO:
-            /* Paso el tiempo sordo, esperando a que la membrana física se estabilice */
             if (ahora >= p->tick_fin_enfriamiento) {
                 p->estado         = PAD_ESTADO_REPOSO;
                 p->delta_anterior = 0;
             }
-            continue; /* Salto para no contaminar la derivada durante la bajada */
+            continue; 
 
         default:
             p->estado = PAD_ESTADO_REPOSO;
@@ -219,7 +204,6 @@ void Pads_Poll(void) {
         p->delta_anterior = delta;
     }
 
-    /* Print de debug periódico para observar mis picos máximos */
     if ((ahora - ultimo_print_dbg) >= 2000U) {
         ultimo_print_dbg = ahora;
         uint8_t hay_actividad = 0U;
@@ -227,9 +211,6 @@ void Pads_Poll(void) {
             if (maquina[i].max_delta_sesion > 40U) { hay_actividad = 1U; break; }
         }
         if (hay_actividad) {
-            printf("[PADS DBG] max_delta: p0=%u p1=%u p2=%u p3=%u\r\n",
-                   maquina[0].max_delta_sesion, maquina[1].max_delta_sesion,
-                   maquina[2].max_delta_sesion, maquina[3].max_delta_sesion);
             for (uint8_t i = 0U; i < PADS_NUM_CANALES; i++) maquina[i].max_delta_sesion = 0U;
         }
     }
@@ -252,34 +233,86 @@ uint16_t Pads_GetRawDelta(uint8_t pad_id) {
     return ultimo_delta[pad_id];
 }
 
+/* NUEVA CALIBRACIÓN CON FEEDBACK VISUAL LED */
 void Pads_CalibrarSensibilidad(void) {
     printf("\r\n======================================================\r\n");
     printf("   CALIBRACION INTERACTIVA DE FUERZA MAXIMA          \r\n");
     printf("======================================================\r\n");
 
+    uint8_t fallos_calibracion[PADS_NUM_CANALES] = {0};
+
     for (uint8_t i = 0U; i < PADS_NUM_CANALES; i++) {
-        if (!pad_habilitado[i]) continue;
+        if (!pad_habilitado[i]) {
+            fallos_calibracion[i] = 1;
+            continue;
+        }
 
-        printf("\n>>> GOLPEA EL PAD %d CON TODA TU FUERZA (5 s) <<<\r\n", i);
-        uint32_t inicio       = osKernelGetTickCount();
+        /* 1. Encender en Blanco indicando que está esperando el golpe */
+        LedsRGB_Clear();
+        LedsRGB_FillAnillo(i, 160U, 160U, 160U);
+        LedsRGB_Show();
+
+        printf("\n>>> GOLPEA EL SET %d CON FUERZA (5 s) <<<\r\n", i+1);
+        uint32_t inicio = osKernelGetTickCount();
         uint16_t max_detectado = 0U;
+        uint8_t golpe_detectado = 0;
 
-        /* Escucho durante 5 segundos guardando el impacto más salvaje del jugador */
         while ((osKernelGetTickCount() - inicio) < 5000U) {
             uint16_t v  = Pads_LeerCanal(canales_adc[i]);
             int32_t  d  = (int32_t)v - (int32_t)linea_base[i];
             uint16_t md = (uint16_t)((d < 0) ? -d : d);
             if (md > max_detectado) max_detectado = md; 
+            
+            /* Si detecta un impacto claro, salimos del bucle para no esperar los 5s */
+            if (md > PADS_UMBRAL_DELTA * 2) {
+                golpe_detectado = 1;
+                osDelay(20U); /* Esperamos a que pase el pico de la vibración */
+                break;
+            }
             osDelay(2U);
         }
 
-        if (max_detectado < PADS_UMBRAL_DELTA) {
-            printf(" -> Sin golpe. Usando valor estándar (1500 cuentas).\r\n");
+        if (max_detectado < PADS_UMBRAL_DELTA && !golpe_detectado) {
+            printf(" -> Sin golpe. Usando valor estandar (1500 cuentas).\r\n");
             rango_max_fuerza[i] = 1500U;
+            fallos_calibracion[i] = 1; /* Fallo -> Luego se pintará de Rosa */
         } else {
-            printf(" -> ¡Registrado! El 100%% físico serán %u cuentas.\r\n", max_detectado);
+            /* Seguro por si el golpe fue muy flojo */
+            if(max_detectado < 1000U) max_detectado = 1000U; 
+            printf(" -> Registrado! El 100%% fisico seran %u cuentas.\r\n", max_detectado);
             rango_max_fuerza[i] = max_detectado;
+            fallos_calibracion[i] = 0; /* Éxito -> Luego se pintará de Blanco */
+        }
+
+        /* Apagar para indicar que ya se registró */
+        LedsRGB_Clear();
+        LedsRGB_Show();
+        osDelay(400U);
+    }
+
+    /* 2. Flashear todos en blanco un par de veces */
+    for(uint8_t f = 0; f < 2; f++) {
+        for(uint8_t i = 0; i < PADS_NUM_CANALES; i++) LedsRGB_FillAnillo(i, 160U, 160U, 160U);
+        LedsRGB_Show();
+        osDelay(200U);
+        LedsRGB_Clear();
+        LedsRGB_Show();
+        osDelay(200U);
+    }
+
+    /* 3. Mostrar el resultado: Rosa = Fallo/Default, Blanco = Calibrado con éxito */
+    for (uint8_t i = 0U; i < PADS_NUM_CANALES; i++) {
+        if (fallos_calibracion[i]) {
+            LedsRGB_FillAnillo(i, 200U, 0U, 100U); /* Rosa */
+        } else {
+            LedsRGB_FillAnillo(i, 160U, 160U, 160U); /* Blanco */
         }
     }
+    LedsRGB_Show();
+    osDelay(2000U); /* Dejamos el resultado 2 segundos para que lo veas */
+
+    LedsRGB_Clear();
+    LedsRGB_Show();
+    
     printf("\n======================================================\r\n\n");
 }

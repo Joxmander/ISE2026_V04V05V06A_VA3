@@ -408,6 +408,11 @@
               <FileType>1</FileType>
               <FilePath>.\CerebroB.c</FilePath>
             </File>
+            <File>
+              <FileName>testCerebroB.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\testCerebroB.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -506,21 +511,6 @@
           </Files>
         </Group>
         <Group>
-          <GroupName>ModosDeJuego</GroupName>
-          <Files>
-            <File>
-              <FileName>fsm_modos.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\fsm_modos.h</FilePath>
-            </File>
-            <File>
-              <FileName>fsm_modos.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\fsm_modos.c</FilePath>
-            </File>
-          </Files>
-        </Group>
-        <Group>
           <GroupName>Buzzer</GroupName>
           <Files>
             <File>
@@ -532,6 +522,21 @@
               <FileName>buzzer.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\buzzer.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>ModosDeJuego</GroupName>
+          <Files>
+            <File>
+              <FileName>fsm_modos.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\fsm_modos.h</FilePath>
+            </File>
+            <File>
+              <FileName>fsm_modos.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\fsm_modos.c</FilePath>
             </File>
           </Files>
         </Group>

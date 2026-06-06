@@ -35,14 +35,15 @@ typedef enum {
 static EstadoMenu_t estado_actual = ESTADO_REPOSO;
 uint8_t modo_juego_actual = 1; 
 
-#define NUM_MODOS 5
+#define NUM_MODOS 4
 const char* nombres_modos[NUM_MODOS] = {
     "Memoria Trab.", 
     "Ctrl Fuerza", 
     "Inhib. Motora", 
     "Ritmo Const.", 
-    "Discriminacion"
+
 };
+
 
 void Actualizar_LCD_Menu() {
     MSGQUEUE_OBJ_LCD_t msg_lcd;

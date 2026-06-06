@@ -132,8 +132,13 @@ int main(void)
 
   /* Create application main thread */
 
-  extern void Hilo_CerebroB(void *argument);
-  osThreadNew(Hilo_CerebroB, NULL, NULL);
+//  extern void Hilo_CerebroB(void *argument);
+//  osThreadNew(Hilo_CerebroB, NULL, NULL);
+	
+	extern void Hilo_TestCerebroB(void *argument);
+  osThreadNew(Hilo_TestCerebroB, NULL, NULL);
+	
+	
 
 
 
